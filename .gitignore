@@ -13,3 +13,4 @@ build
 *.js
 *.html
 .DS_Store
+*.css
