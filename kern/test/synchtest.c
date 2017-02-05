@@ -253,7 +253,16 @@ locktest(int nargs, char **args)
 		testlock = lock_create("testlock");
 		if (testlock == NULL) {
 			panic("lt1: lock_create failed\n");
+		} 
+		if(testlock->lk_wchan == NULL) {
+			panic("lt1: lock_create failed, wait channel was not initialized.\n");
 		}
+//		if(testlock->lk_spinlock == NULL) {
+//			panic("lt1: lock_create failed, spinlock was not initialized.\n");
+//		}
+	//	if(testlock->lk_thread == NULL) {	
+	//		panic("lt1: lock_create failed, spinlock was not initialized.\n");
+	//	}	
 		donesem = sem_create("donesem", 0);
 		if (donesem == NULL) {
 			panic("lt1: sem_create failed\n");

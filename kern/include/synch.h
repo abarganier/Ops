@@ -57,7 +57,9 @@ void sem_destroy(struct semaphore *);
  * Operations (both atomic):
  *     P (proberen): decrement count. If the count is 0, block until
  *                   the count is 1 again before decrementing.
+ *                   NOTE: P is also known as "wait"
  *     V (verhogen): increment count.
+ *		     NOTE: V is also known as "signal"
  */
 void P(struct semaphore *);
 void V(struct semaphore *);
@@ -76,6 +78,9 @@ struct lock {
         char *lk_name;
         // add what you need here
         // (don't forget to mark things volatile as needed)
+	struct wchan *lk_wchan;
+	struct spinlock lk_spinlock;
+	struct thread *lk_thread;
 };
 
 struct lock *lock_create(const char *name);

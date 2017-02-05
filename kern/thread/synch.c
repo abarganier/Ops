@@ -85,6 +85,7 @@ sem_destroy(struct semaphore *sem)
 	kfree(sem);
 }
 
+// NOTE: P is analogous to "wait"
 void
 P(struct semaphore *sem)
 {
@@ -120,6 +121,7 @@ P(struct semaphore *sem)
 	spinlock_release(&sem->sem_lock);
 }
 
+// NOTE: V is analogous to "signal"
 void
 V(struct semaphore *sem)
 {
@@ -155,7 +157,15 @@ lock_create(const char *name)
 	}
 
 	// add stuff here as needed
-
+	lock->lk_wchan = wchan_create(lock->lk_name);
+	if (lock->lk_wchan == NULL) {
+		kfree(lock->lk_name);
+		kfree(lock);
+		return NULL;
+	}
+	lock->lk_thread = NULL;	
+	spinlock_init(&lock->lk_spinlock);
+	
 	return lock;
 }
 
