@@ -150,6 +150,7 @@ lock_create(const char *name)
 		return NULL;
 	}
 
+	// wchan assumes lk_name is constant.
 	lock->lk_name = kstrdup(name);
 	if (lock->lk_name == NULL) {
 		kfree(lock);
@@ -165,7 +166,7 @@ lock_create(const char *name)
 	}
 	lock->lk_thread = NULL;	
 	spinlock_init(&lock->lk_spinlock);
-	
+	lock->lk_count = 1;	
 	return lock;
 }
 
@@ -184,8 +185,25 @@ void
 lock_acquire(struct lock *lock)
 {
 	// Write this
+	KASSERT(lock != NULL);
 
-	(void)lock;  // suppress warning until code gets written
+	/*
+	 * May not block in an interrupt handler.
+	 *
+	 * For robustness, always check, even if we can actually
+	 * acquire the lock without blocking.
+	 */
+	KASSERT(curthread->t_in_interrupt == false);
+
+	/* Use the lock's spinlock to protect the wchan as well. */
+	spinlock_acquire(&lock->lk_spinlock);
+	while (lock->lk_count == 0) {
+		wchan_sleep(lock->lk_wchan, &lock->lk_spinlock);
+	}
+	KASSERT(lock->lk_count == 1);
+	lock->lk_count--;
+	lock->lk_thread = curthread;
+	spinlock_release(&lock->lk_spinlock);
 }
 
 void
