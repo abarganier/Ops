@@ -436,7 +436,6 @@ cvtest(int nargs, char **args)
 	}
 	spinlock_init(&status_lock);
 	test_status = TEST161_SUCCESS;
-
 	testval1 = NTHREADS-1;
 	for (i=0; i<NTHREADS; i++) {
 		kprintf_t(".");
@@ -449,7 +448,6 @@ cvtest(int nargs, char **args)
 		kprintf_t(".");
 		P(donesem);
 	}
-
 	lock_destroy(testlock);
 	cv_destroy(testcv);
 	sem_destroy(donesem);
@@ -459,7 +457,7 @@ cvtest(int nargs, char **args)
 
 	kprintf_t("\n");
 	success(test_status, SECRET, "cvt1");
-
+	
 	return 0;
 }
 
