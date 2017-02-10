@@ -40,12 +40,28 @@
 #include <test.h>
 #include <synch.h>
 
+struct semaphore *male_sem;
+struct semaphore *female_sem;
+struct semaphore *mm_sem;
+
 /*
  * Called by the driver during initialization.
  */
 
 void whalemating_init() {
-	return;
+	male_sem = sem_create("male_sem", 0);
+	if(male_sem == NULL) {
+		panic("whalemating_init(): male_sem creation failed.\n");
+	}
+	female_sem = sem_create("female_sem", 0);
+	if(female_sem == NULL) {
+		panic("whalemating_init(): female_sem creation failed.\n");
+	}
+	mm_sem = sem_create("mm_sem", 1);
+	if(mm_sem == NULL) {
+		panic("whalemating_init(): mm_sem creation failed.\n");
+	}
+
 }
 
 /*
@@ -54,38 +70,34 @@ void whalemating_init() {
 
 void
 whalemating_cleanup() {
-	return;
+	sem_destroy(male_sem);
+	sem_destroy(female_sem);
+	sem_destroy(mm_sem);
 }
 
 void
 male(uint32_t index)
 {
-	(void)index;
-	/*
-	 * Implement this function by calling male_start and male_end when
-	 * appropriate.
-	 */
-	return;
+	male_start(index);
+	P(male_sem);
+	male_end(index);
 }
 
 void
 female(uint32_t index)
 {
-	(void)index;
-	/*
-	 * Implement this function by calling female_start and female_end when
-	 * appropriate.
-	 */
-	return;
+	female_start(index);
+	P(female_sem);
+	female_end(index);
 }
 
 void
 matchmaker(uint32_t index)
 {
-	(void)index;
-	/*
-	 * Implement this function by calling matchmaker_start and matchmaker_end
-	 * when appropriate.
-	 */
-	return;
+	matchmaker_start(index);
+	P(mm_sem);
+	V(male_sem);
+	V(female_sem);
+	matchmaker_end(index);
+	V(mm_sem);
 }

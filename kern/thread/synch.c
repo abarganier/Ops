@@ -303,7 +303,6 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 	KASSERT(lock != NULL);
 	KASSERT(lock_do_i_hold(lock));
 	spinlock_acquire(&(cv->cv_spinlock));
-//	KASSERT(wchan_isempty(cv->cv_wchan, &cv->cv_spinlock) == false);
 	wchan_wakeall(cv->cv_wchan, &cv->cv_spinlock);
 	spinlock_release(&cv->cv_spinlock);				
 }
