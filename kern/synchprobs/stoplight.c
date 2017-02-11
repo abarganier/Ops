@@ -154,12 +154,16 @@ turnright(uint32_t direction, uint32_t index)
 void
 gostraight(uint32_t direction, uint32_t index)
 {
-	(void)direction;
-	(void)index;
-	/*
-	 * Implement this function.
-	 */
-	return;
+	struct semaphore* sem_enter = get_sem(direction);
+	uint32_t leave_direction = (direction + 3) % 4;
+	struct semaphore* sem_leave = get_sem(leave_direction);
+	P(sem_enter);
+	P(sem_leave);
+	inQuadrant(direction, index);
+	inQuadrant(leave_direction, index);
+	leaveIntersection(index);
+	V(sem_enter);
+	V(sem_leave);
 }
 /*
  * Enters: X
@@ -169,10 +173,19 @@ gostraight(uint32_t direction, uint32_t index)
 void
 turnleft(uint32_t direction, uint32_t index)
 {
-	(void)direction;
-	(void)index;
-	/*
-	 * Implement this function.
-	 */
-	return;
+	struct semaphore* sem_enter = get_sem(direction);
+	uint32_t direction_passthrough = (direction + 3) % 4;
+	uint32_t direction_leave = (direction + 2) % 4;
+	struct semaphore* sem_passthrough = get_sem(direction_passthrough);
+	struct semaphore* sem_leave = get_sem(direction_leave);
+	P(sem_enter);
+	P(sem_passthrough);
+	P(sem_leave);
+	inQuadrant(direction, index);
+	inQuadrant(direction_passthrough, index);
+	inQuadrant(direction_leave, index);
+	leaveIntersection(index);
+	V(sem_enter);
+	V(sem_passthrough);
+	V(sem_leave);
 }
