@@ -161,6 +161,7 @@ void matchmaker(uint32_t);
  * stoplight.c.
  */
 
+struct semaphore* get_sem(uint32_t);
 void gostraight(uint32_t, uint32_t);
 void turnleft(uint32_t, uint32_t);
 void turnright(uint32_t, uint32_t);

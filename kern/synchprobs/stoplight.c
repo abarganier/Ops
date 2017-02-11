@@ -69,43 +69,100 @@
 #include <test.h>
 #include <synch.h>
 
+struct semaphore* sem0; 
+struct semaphore* sem1; 
+struct semaphore* sem2; 
+struct semaphore* sem3; 
 /*
  * Called by the driver during initialization.
  */
 
 void
 stoplight_init() {
-	return;
+	sem0 = sem_create("sem0", 1);
+	if (sem0 == NULL) {
+		panic("Stoplight.c: Failed to create sem0!\n");
+	}
+	
+	sem1 = sem_create("sem1", 1);
+	if (sem1 == NULL) {
+		panic("Stoplight.c: failed to create sem1!\n");
+	}		
+	
+	sem2 = sem_create("sem2", 1);
+	if (sem2 == NULL) {
+		panic("Stoplight.c: Failed to create sem2!\n");
+	}
+	
+	sem3 = sem_create("sem3", 1);
+	if (sem3 == NULL) {
+		panic("Stoplight.c: Failed to create sem3!\n");
+	}			
 }
+
 
 /*
  * Called by the driver during teardown.
  */
 
 void stoplight_cleanup() {
-	return;
+	sem_destroy(sem0);
+	sem_destroy(sem1);
+	sem_destroy(sem2);
+	sem_destroy(sem3);
 }
 
+struct semaphore* get_sem(uint32_t quadrant) {
+	switch (quadrant) {
+		case 0:
+			return sem0;
+			break;
+		case 1:
+			return sem1;
+			break;
+		case 2: 
+			return sem2;
+			break;
+		case 3:
+			return sem3;
+			break;
+		default:
+			panic("stoplight.c:getSem(): Invalid quadrant ID passed!\n");
+			return NULL;
+	}
+}
+
+
+/*
+ * Enters: X
+ * Leaves: X
+ */
 void
 turnright(uint32_t direction, uint32_t index)
 {
 	(void)direction;
 	(void)index;
-	/*
-	 * Implement this function.
-	 */
 	return;
 }
+
+/*
+ * Enters: X
+ * Leaves: (X+3)%4
+ */
 void
 gostraight(uint32_t direction, uint32_t index)
 {
-	(void)direction;
-	(void)index;
-	/*
-	 * Implement this function.
-	 */
-	return;
+	struct semaphore* sem = get_sem(direction);
+	P(sem);
+	inQuadrant(direction, index);
+	leaveIntersection(index);
+	V(sem);
 }
+/*
+ * Enters: X
+ * Passes through: (X+3)%4
+ * Leaves: (X+2)%4
+ */
 void
 turnleft(uint32_t direction, uint32_t index)
 {
