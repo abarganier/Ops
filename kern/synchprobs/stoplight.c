@@ -140,9 +140,11 @@ struct semaphore* get_sem(uint32_t quadrant) {
 void
 turnright(uint32_t direction, uint32_t index)
 {
-	(void)direction;
-	(void)index;
-	return;
+	struct semaphore* sem = get_sem(direction);
+	P(sem);
+	inQuadrant(direction, index);
+	leaveIntersection(index);
+	V(sem);
 }
 
 /*
@@ -152,11 +154,12 @@ turnright(uint32_t direction, uint32_t index)
 void
 gostraight(uint32_t direction, uint32_t index)
 {
-	struct semaphore* sem = get_sem(direction);
-	P(sem);
-	inQuadrant(direction, index);
-	leaveIntersection(index);
-	V(sem);
+	(void)direction;
+	(void)index;
+	/*
+	 * Implement this function.
+	 */
+	return;
 }
 /*
  * Enters: X
