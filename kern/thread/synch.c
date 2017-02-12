@@ -233,7 +233,6 @@ lock_do_i_hold(struct lock *lock)
 //
 // CV
 
-
 struct cv *
 cv_create(const char *name)
 {
@@ -305,4 +304,51 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 	spinlock_acquire(&(cv->cv_spinlock));
 	wchan_wakeall(cv->cv_wchan, &cv->cv_spinlock);
 	spinlock_release(&cv->cv_spinlock);				
+}
+
+////////////////////////////////////////////////////////////
+//
+// RW-Lock
+
+struct rwlock *
+rwlock_create(const char * name) {
+	struct rwlock *rw;
+	
+	rw = kmalloc(sizeof(*rw));
+	if(rw == NULL) {
+		return NULL;
+	}
+
+	rw->rwlock_name = kstrdup(name);
+	if(rw->rwlock_name == NULL) {
+		kfree(rw);
+		return NULL;
+	}
+	
+	return rw;
+}
+
+void
+rwlock_destroy(struct rwlock *rw) {
+	(void)rw;
+}
+
+void
+rwlock_acquire_read(struct rwlock *rw) {
+	(void)rw;
+}
+
+void
+rwlock_release_read(struct rwlock *rw) {
+	(void)rw;
+}
+
+void
+rwlock_acquire_write(struct rwlock *rw) {
+	(void)rw;
+}
+
+void
+rwlock_release_write(struct rwlock *rw) {
+	(void)rw;
 }
