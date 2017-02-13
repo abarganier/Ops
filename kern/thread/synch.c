@@ -332,31 +332,78 @@ rwlock_create(const char * name) {
 		kfree(rw);
 		return NULL;
 	}
+
+	rw->count_lock = lock_create("rw count lock");
+	if(rw->count_lock == NULL) {
+		kfree(rw->rwlock_name);
+		kfree(rw);
+		return NULL;
+	}	
 	
+	rw->bool_lock = lock_create("rw bool lock");
+	if(rw->bool_lock == NULL) {
+		kfree(rw->rwlock_name);
+		lock_destroy(rw->count_lock);
+		kfree(rw);
+		return NULL;
+	}	
+	rw->rw_sem = sem_create("rw_sem", 1);
+	if(rw->rw_sem == NULL) {
+		kfree(rw->rwlock_name);
+		lock_destroy(rw->count_lock);
+		lock_destroy(rw->bool_lock);
+		kfree(rw);
+		return NULL;
+	}
+	rw->r_count = 0;
+	rw->w_exec = false;	
 	return rw;
 }
 
 void
 rwlock_destroy(struct rwlock *rw) {
-	(void)rw;
+	lock_destroy(rw->count_lock);
+	lock_destroy(rw->bool_lock);
+	sem_destroy(rw->rw_sem);
+	kfree(rw->rwlock_name);
 }
 
 void
 rwlock_acquire_read(struct rwlock *rw) {
-	(void)rw;
+	lock_acquire(rw->count_lock);
+	rw->r_count++;
+	lock_acquire(rw->bool_lock);
+	KASSERT(rw->r_count >= 0);
+	while(rw->w_exec || rw->r_count == 0) {
+		P(rw->rw_sem);
+	}
+	lock_release(rw->count_lock);
+	lock_release(rw->bool_lock);
 }
 
 void
 rwlock_release_read(struct rwlock *rw) {
-	(void)rw;
+	lock_acquire(rw->count_lock);
+	rw->r_count--;
+	KASSERT(rw->r_count >= 0);
+	if(rw->r_count == 0) {
+		V(rw->rw_sem);
+	}
+	lock_release(rw->count_lock);
 }
 
 void
 rwlock_acquire_write(struct rwlock *rw) {
-	(void)rw;
+	lock_acquire(rw->bool_lock);
+	P(rw->rw_sem);
+	rw->w_exec = true;
+	lock_release(rw->bool_lock);
 }
 
 void
 rwlock_release_write(struct rwlock *rw) {
-	(void)rw;
+	lock_acquire(rw->bool_lock);
+	rw->w_exec = false;
+	V(rw->rw_sem);
+	lock_release(rw->bool_lock);
 }
