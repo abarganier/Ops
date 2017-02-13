@@ -14,3 +14,5 @@ build
 *.html
 .DS_Store
 *.css
+tags/
+kern/thread/tags/
