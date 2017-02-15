@@ -359,7 +359,7 @@ rwlock_create(const char * name) {
 void
 rwlock_destroy(struct rwlock *rw) {
 	wchan_destroy(rw->r_wchan);
-	wchan_destroy(rw->w_wchan)
+	wchan_destroy(rw->w_wchan);
 	spinlock_cleanup(&rw->rw_spinlock);
 	kfree(rw->rwlock_name);
 	kfree(rw);
@@ -386,7 +386,7 @@ rwlock_release_read(struct rwlock *rw) {
 	spinlock_acquire(&rw->rw_spinlock);
 	rw->r_count--;
 	if(rw->r_count == 0) {
-		wchan_wakeone(&rw->w_wchan);
+		wchan_wakeone(rw->w_wchan, &rw->rw_spinlock);
 	}
 	spinlock_release(&rw->rw_spinlock);
 }

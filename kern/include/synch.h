@@ -153,7 +153,7 @@ void cv_broadcast(struct cv *cv, struct lock *lock);
  */
 
 struct rwlock {
-	char * rw_name;
+	char * rwlock_name;
 	struct spinlock rw_spinlock;
 	struct wchan *r_wchan;
 	struct wchan *w_wchan;
