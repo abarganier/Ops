@@ -333,77 +333,85 @@ rwlock_create(const char * name) {
 		return NULL;
 	}
 
-	rw->count_lock = lock_create("rw count lock");
-	if(rw->count_lock == NULL) {
+	rw->r_wchan = wchan_create("read channel");
+	if(rw->r_wchan == NULL) {
 		kfree(rw->rwlock_name);
 		kfree(rw);
 		return NULL;
 	}	
 	
-	rw->bool_lock = lock_create("rw bool lock");
-	if(rw->bool_lock == NULL) {
+	rw->w_wchan = wchan_create("write channel");
+	if(rw->w_wchan == NULL) {
 		kfree(rw->rwlock_name);
-		lock_destroy(rw->count_lock);
-		kfree(rw);
-		return NULL;
-	}	
-	rw->rw_sem = sem_create("rw_sem", 1);
-	if(rw->rw_sem == NULL) {
-		kfree(rw->rwlock_name);
-		lock_destroy(rw->count_lock);
-		lock_destroy(rw->bool_lock);
+		wchan_destroy(rw->r_wchan);
 		kfree(rw);
 		return NULL;
 	}
+
+	spinlock_init(&rw->rw_spinlock);
+
 	rw->r_count = 0;
 	rw->w_exec = false;	
+	rw->w_wait = false;
 	return rw;
 }
 
 void
 rwlock_destroy(struct rwlock *rw) {
-	lock_destroy(rw->count_lock);
-	lock_destroy(rw->bool_lock);
-	sem_destroy(rw->rw_sem);
+	wchan_destroy(rw->r_wchan);
+	wchan_destroy(rw->w_wchan)
+	spinlock_cleanup(&rw->rw_spinlock);
 	kfree(rw->rwlock_name);
+	kfree(rw);
 }
 
 void
 rwlock_acquire_read(struct rwlock *rw) {
-	lock_acquire(rw->count_lock);
-	rw->r_count++;
-	lock_acquire(rw->bool_lock);
+	KASSERT(rw != NULL);
+	KASSERT(curthread->t_in_interrupt == false); 
 	KASSERT(rw->r_count >= 0);
-	while(rw->w_exec || rw->r_count == 1) {
-		P(rw->rw_sem);
+	spinlock_acquire(&rw->rw_spinlock);
+	while(rw->w_exec || rw->w_wait) {
+		wchan_sleep(rw->r_wchan, &rw->rw_spinlock);
 	}
-	lock_release(rw->count_lock);
-	lock_release(rw->bool_lock);
+	rw->r_count++;
+	KASSERT(rw->r_count > 0);
+	spinlock_release(&rw->rw_spinlock);
 }
 
 void
 rwlock_release_read(struct rwlock *rw) {
-	lock_acquire(rw->count_lock);
+	KASSERT(rw != NULL);
+	KASSERT(rw->r_count > 0);
+	spinlock_acquire(&rw->rw_spinlock);
 	rw->r_count--;
-	KASSERT(rw->r_count >= 0);
 	if(rw->r_count == 0) {
-		V(rw->rw_sem);
+		wchan_wakeone(&rw->w_wchan);
 	}
-	lock_release(rw->count_lock);
+	spinlock_release(&rw->rw_spinlock);
 }
 
 void
 rwlock_acquire_write(struct rwlock *rw) {
-	lock_acquire(rw->bool_lock);
-	P(rw->rw_sem);
+	KASSERT(rw != NULL);
+	KASSERT(curthread->t_in_interrupt == false); 
+	spinlock_acquire(&rw->rw_spinlock);
+	while(rw->r_count > 0 || rw->w_exec) {
+		rw->w_wait = true;
+		wchan_sleep(rw->w_wchan, &rw->rw_spinlock);
+	}
 	rw->w_exec = true;
-	lock_release(rw->bool_lock);
+	rw->w_wait = false;
+	spinlock_release(&rw->rw_spinlock);
 }
 
 void
 rwlock_release_write(struct rwlock *rw) {
-	lock_acquire(rw->bool_lock);
+	KASSERT(rw != NULL);
+	KASSERT(rw->w_exec);
+	spinlock_acquire(&rw->rw_spinlock);
 	rw->w_exec = false;
-	V(rw->rw_sem);
-	lock_release(rw->bool_lock);
+	wchan_wakeall(rw->r_wchan, &rw->rw_spinlock);
+	wchan_wakeall(rw->w_wchan, &rw->rw_spinlock);
+	spinlock_release(&rw->rw_spinlock);
 }

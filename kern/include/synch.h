@@ -153,12 +153,13 @@ void cv_broadcast(struct cv *cv, struct lock *lock);
  */
 
 struct rwlock {
-        char *rwlock_name;
-	struct lock * count_lock;
-	struct lock * bool_lock;
-	struct semaphore * rw_sem;
-	volatile int r_count;
+	char * rw_name;
+	struct spinlock rw_spinlock;
+	struct wchan *r_wchan;
+	struct wchan *w_wchan;
 	bool w_exec;
+	bool w_wait;
+	volatile int r_count;
 };
 
 struct rwlock * rwlock_create(const char *);
