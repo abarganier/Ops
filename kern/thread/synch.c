@@ -374,7 +374,7 @@ rwlock_acquire_read(struct rwlock *rw) {
 	rw->r_count++;
 	lock_acquire(rw->bool_lock);
 	KASSERT(rw->r_count >= 0);
-	while(rw->w_exec || rw->r_count == 0) {
+	while(rw->w_exec || rw->r_count == 1) {
 		P(rw->rw_sem);
 	}
 	lock_release(rw->count_lock);
