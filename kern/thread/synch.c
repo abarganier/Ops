@@ -413,7 +413,10 @@ rwlock_release_write(struct rwlock *rw) {
 	spinlock_acquire(&rw->rw_spinlock);
 	KASSERT(rw->w_exec);
 	rw->w_exec = false;
-	wchan_wakeone(rw->w_wchan, &rw->rw_spinlock);
-	wchan_wakeall(rw->r_wchan, &rw->rw_spinlock);
+	if(rw->w_wait) {
+		wchan_wakeone(rw->w_wchan, &rw->rw_spinlock);
+	} else {
+		wchan_wakeall(rw->r_wchan, &rw->rw_spinlock);
+	}
 	spinlock_release(&rw->rw_spinlock);
 }
