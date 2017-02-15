@@ -408,10 +408,10 @@ rwlock_acquire_write(struct rwlock *rw) {
 void
 rwlock_release_write(struct rwlock *rw) {
 	KASSERT(rw != NULL);
-	KASSERT(rw->w_exec);
 	spinlock_acquire(&rw->rw_spinlock);
+	KASSERT(rw->w_exec);
 	rw->w_exec = false;
+	spinlock_release(&rw->rw_spinlock);
 	wchan_wakeall(rw->w_wchan, &rw->rw_spinlock);
 	wchan_wakeall(rw->r_wchan, &rw->rw_spinlock);
-	spinlock_release(&rw->rw_spinlock);
 }
