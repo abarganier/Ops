@@ -158,7 +158,6 @@ struct rwlock {
 	struct wchan *r_wchan;
 	struct wchan *w_wchan;
 	bool w_exec;
-	bool w_wait;
 	volatile int r_count;
 };
 
