@@ -396,7 +396,7 @@ rwlock_acquire_write(struct rwlock *rw) {
 	KASSERT(rw != NULL);
 	KASSERT(curthread->t_in_interrupt == false); 
 	spinlock_acquire(&rw->rw_spinlock);
-	while(rw->r_count > 0 || rw->w_exec) {
+	while(rw->r_count > 0 || rw->w_exec) { //Put rw->w_wait here?
 		rw->w_wait = true;
 		wchan_sleep(rw->w_wchan, &rw->rw_spinlock);
 	}
@@ -411,7 +411,7 @@ rwlock_release_write(struct rwlock *rw) {
 	KASSERT(rw->w_exec);
 	spinlock_acquire(&rw->rw_spinlock);
 	rw->w_exec = false;
-	wchan_wakeall(rw->r_wchan, &rw->rw_spinlock);
 	wchan_wakeall(rw->w_wchan, &rw->rw_spinlock);
+	wchan_wakeall(rw->r_wchan, &rw->rw_spinlock);
 	spinlock_release(&rw->rw_spinlock);
 }
