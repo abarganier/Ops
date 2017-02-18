@@ -42,6 +42,21 @@ struct addrspace;
 struct thread;
 struct vnode;
 
+struct filehandle {
+
+	char *fh_name;				/*For debugging*/
+	struct vnode *fh_vnode;			/*Points to file object */
+	volatile int fh_offset_value;		
+	volatile int num_open_proc;		/*Counter for num of threads or processes with 
+						access to filehandle*/
+	struct lock *fh_lock;
+};
+
+struct filehandle *filehandle_create(const char *name);
+void filehandle_destroy(struct filehandle *);
+
+
+
 /*
  * Process structure.
  *
@@ -71,6 +86,7 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
+	struct filehandle filetable[64];
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -96,21 +112,6 @@ struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
-
-
-
-struct filehandle {
-
-	char *fh_name;				/*For debugging*/
-	struct vnode *fh_vnode;			/*Points to file object */
-	volatile int fh_offset_value;		
-	volatile int num_open_proc;		/*Counter for num of threads or processes with 
-						access to filehandle*/
-	struct lock *fh_lock;
-}
-
-struct filehandle *filehandle_create(const char *name);
-void filehandle_destroy(struct filehandle *);
 
 
 #endif /* _PROC_H_ */

@@ -48,7 +48,7 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
-
+#include <synch.h>
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
@@ -326,27 +326,28 @@ filehandle_create(const char *name)
 	struct filehandle *filehandle;
 
 	/*Allocate memory for filehandle struct */
-	filehandle = malloc(sizeof(*filehandle));
+	filehandle = kmalloc(sizeof(*filehandle));
 	if (filehandle == NULL){
 		return NULL;
 	}
 
 	/*Assign name. Placeholder param for now*/
-	filehandle->fh_name = strdup(name);
+	filehandle->fh_name = kstrdup(name);
 	if(filehandle->fh_name == NULL){
-		free(filehandle);
+		kfree(filehandle);
 		return NULL;
 	}
 
 	/*Where do these arguments for vnode_init come from?*/
-	fh_vnode = vnode_init(vn, ops, fs, fsdata);
+	//fh_vnode = vnode_init(vn, ops, fs, fsdata);
 
 	/* File handle offset and number of open processes initialized to 0*/
-	fh_offset_value = 0;
-	num_open_proc = 0;
+	filehandle->fh_offset_value = 0;
+	filehandle->num_open_proc = 0;
 
 	/*Create lock for file handle*/
-	filehandle->fh_lock = lock_create("fildHandleLock");
+	filehandle->fh_lock = lock_create("file_handle_lock");
+	return filehandle;
 }
 
 void 
@@ -356,7 +357,7 @@ filehandle_destroy(struct filehandle *filehandle)
 	
 	vnode_cleanup(filehandle->fh_vnode);
 	lock_destroy(filehandle->fh_lock);
-	free(filehandle->fh_name);
-	free(filehandle);
+	kfree(filehandle->fh_name);
+	kfree(filehandle);
 }
 
