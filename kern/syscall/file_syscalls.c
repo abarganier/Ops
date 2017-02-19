@@ -40,7 +40,7 @@
 #include <test.h>
 #include <file_syscalls.h>
 
-size_t
+ssize_t
 sys_write(int fd, const void *buf, size_t buflen)
 {
 	(void)fd;

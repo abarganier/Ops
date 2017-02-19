@@ -4,7 +4,7 @@
 /*
  * Syscall method to write to a file
  */
-size_t sys_write(int, const void *, size_t);
+ssize_t sys_write(int, const void *, size_t);
 
 
 
