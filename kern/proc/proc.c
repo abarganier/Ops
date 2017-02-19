@@ -49,6 +49,8 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <synch.h>
+#include <vfs.h>
+#include <kern/unistd.h>
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
@@ -170,6 +172,11 @@ proc_destroy(struct proc *proc)
 
 	kfree(proc->p_name);
 	kfree(proc);
+
+	/*
+	 *Need to destroy all file handles with not in use
+	 */
+
 }
 
 /*
@@ -218,6 +225,25 @@ proc_create_runprogram(const char *name)
 	}
 	spinlock_release(&curproc->p_lock);
 
+	/* Add elements to file table */
+	newproc->filetable[0] = filehandle_create("con:", STDIN_FILENO); 
+	if(newproc->filetable[0] == NULL){
+		proc_destroy(newproc);	
+		return NULL;
+	}
+	newproc->filetable[1] = filehandle_create("con:", STDOUT_FILENO); 
+	if(newproc->filetable[0] == NULL){
+		filehandle_destroy(newproc->filetable[0]);
+		proc_destroy(newproc);	
+		return NULL;
+	}
+	newproc->filetable[2] = filehandle_create("con:", STDERR_FILENO); 
+	if(newproc->filetable[0] == NULL){
+		filehandle_destroy(newproc->filetable[0]);
+		filehandle_destroy(newproc->filetable[1]);
+		proc_destroy(newproc);		
+		return NULL;
+	}
 	return newproc;
 }
 
@@ -321,7 +347,7 @@ proc_setas(struct addrspace *newas)
 
 
 struct filehandle *
-filehandle_create(const char *name)
+filehandle_create(const char *name, int fh_perm)
 {
 	struct filehandle *filehandle;
 
@@ -337,16 +363,29 @@ filehandle_create(const char *name)
 		kfree(filehandle);
 		return NULL;
 	}
+	
+	int ret_val = vfs_open(filehandle->fh_name, fh_perm, 0, &filehandle->fh_vnode);  
+	if(ret_val){
+		kfree(filehandle->fh_name);
+		kfree(filehandle);
+		return NULL;
+	}
 
-	/*Where do these arguments for vnode_init come from?*/
-	//fh_vnode = vnode_init(vn, ops, fs, fsdata);
-
+	filehandle->fh_perm = fh_perm; /**/
+	
 	/* File handle offset and number of open processes initialized to 0*/
 	filehandle->fh_offset_value = 0;
 	filehandle->num_open_proc = 0;
 
 	/*Create lock for file handle*/
 	filehandle->fh_lock = lock_create("file_handle_lock");
+	if(filehandle->fh_lock == NULL){
+		kfree(filehandle->fh_name);
+		vfs_close(filehandle->fh_vnode);
+		kfree(filehandle);
+		return NULL;
+	}
+	
 	return filehandle;
 }
 
@@ -354,10 +393,11 @@ void
 filehandle_destroy(struct filehandle *filehandle)
 {
 	KASSERT(filehandle != NULL);
+	//Maybe insert KASSERT to see if call to filehandle_destroy is allowed	
 	
-	vnode_cleanup(filehandle->fh_vnode);
 	lock_destroy(filehandle->fh_lock);
 	kfree(filehandle->fh_name);
+	vfs_close(filehandle->fh_vnode);
 	kfree(filehandle);
 }
 

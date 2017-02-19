@@ -50,9 +50,10 @@ struct filehandle {
 	volatile int num_open_proc;		/*Counter for num of threads or processes with 
 						access to filehandle*/
 	struct lock *fh_lock;
+	int fh_perm;				/*Permission variable*/
 };
 
-struct filehandle *filehandle_create(const char *name);
+struct filehandle *filehandle_create(const char *, int);
 void filehandle_destroy(struct filehandle *);
 
 
@@ -86,7 +87,7 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
-	struct filehandle filetable[64];
+	struct filehandle* filetable[64];
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
