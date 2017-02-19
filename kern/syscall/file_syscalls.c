@@ -39,15 +39,25 @@
 #include <syscall.h>
 #include <test.h>
 #include <file_syscalls.h>
+#include <uio.h>
+#include <synch.h>
+#include <vnode.h>
 
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen)
 {
-	(void)fd;
-	(void)buf;
-	(void)buflen;
+	struct filehandle *fh = curproc->filetable[fd];
+	struct iovec iov;
+	struct uio myuio;
+
+	uio_kinit(&iov, &myuio, (void*)buf, buflen, fh->fh_offset_value, UIO_WRITE);
 	while(1) {	
-		;
+		lock_acquire(fh->fh_lock);
+		int result = VOP_WRITE(fh->fh_vnode, &myuio);
+		if(result) {
+			continue;
+		}			
+		lock_release(fh->fh_lock);
 	}
 	return 0;
 }
