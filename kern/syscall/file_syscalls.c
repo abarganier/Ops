@@ -45,7 +45,7 @@
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 {
-	if(curproc->filetable[fd] == NULL) {
+	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = -1;
 		return EBADF;
 	}	
@@ -55,6 +55,12 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	struct uio u;
 	
 	lock_acquire(fh->fh_lock);
+		
+//	int err = copyin(buf, iov.iov_ubase, buflen);
+//	if(err) {
+//		*retval = -1;
+//		return 1;
+//	}
 
 	iov.iov_ubase = (userptr_t)buf;
 	iov.iov_len = buflen;
