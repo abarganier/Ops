@@ -110,7 +110,9 @@ syscall(struct trapframe *tf)
 		break;
 
 	    case SYS_write:
-		err = sys_write(0, "Hello world!", 13);
+		// put result for userspace code in retval (v0). 
+		// pass to sys_write so we can set the value in the call.
+		err = sys_write((int)tf->tf_a0, (const void *)tf->tf_a1, (size_t)tf->tf_a2, &retval);
 		break;
 
 	    default:
@@ -131,6 +133,7 @@ syscall(struct trapframe *tf)
 	}
 	else {
 		/* Success. */
+
 		tf->tf_v0 = retval;
 		tf->tf_a3 = 0;      /* signal no error */
 	}

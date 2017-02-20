@@ -44,20 +44,35 @@
 #include <vnode.h>
 
 ssize_t
-sys_write(int fd, const void *buf, size_t buflen)
+sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 {
 	struct filehandle *fh = curproc->filetable[fd];
 	struct iovec iov;
-	struct uio myuio;
-
-	uio_kinit(&iov, &myuio, (void*)buf, buflen, fh->fh_offset_value, UIO_WRITE);
-	while(1) {	
-		lock_acquire(fh->fh_lock);
-		int result = VOP_WRITE(fh->fh_vnode, &myuio);
-		if(result) {
-			continue;
-		}			
-		lock_release(fh->fh_lock);
+	struct uio u;
+	
+	iov.iov_ubase = (userptr_t)buf;
+	iov.iov_len = buflen;
+	u.uio_iov = &iov;	
+	u.uio_iovcnt = 1; 
+	u.uio_resid = buflen;
+	u.uio_offset = fh->fh_offset_value;
+	u.uio_segflg = UIO_USERSPACE;
+	u.uio_rw = UIO_WRITE;
+	u.uio_space = curproc->p_addrspace;
+	
+	lock_acquire(fh->fh_lock);
+	int result = VOP_WRITE(fh->fh_vnode, &u);
+	if(result) {
+		// Meaningless, just hacked for now
+		return 1;
 	}
+	fh->fh_offset_value = u.uio_offset;
+	int result2 = VOP_WRITE(fh->fh_vnode, &u);
+	if(result2) {
+		return 1;
+	}
+	fh->fh_offset_value = u.uio_offset;
+	lock_release(fh->fh_lock);
+	*retval = 1;
 	return 0;
 }

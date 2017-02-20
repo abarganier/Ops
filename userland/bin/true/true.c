@@ -29,7 +29,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-
+#include <stdio.h>
 /*
  * true - succeed.
  */
@@ -37,6 +37,7 @@
 int
 main(void)
 {
+	printf("Helloooooooo I would be surprised if this works\n");
 	/* Just exit with success. */
 	exit(0);
 }
