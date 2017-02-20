@@ -55,6 +55,7 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	struct uio u;
 	
 	lock_acquire(fh->fh_lock);
+
 	iov.iov_ubase = (userptr_t)buf;
 	iov.iov_len = buflen;
 	u.uio_iov = &iov;	
@@ -72,6 +73,7 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	}
 	fh->fh_offset_value = u.uio_offset;
 	*retval = u.uio_resid;
+
 	lock_release(fh->fh_lock);
 	return 0;
 }
