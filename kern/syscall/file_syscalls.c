@@ -29,7 +29,6 @@
 
 #include <types.h>
 #include <kern/errno.h>
-#include <kern/fcntl.h>
 #include <lib.h>
 #include <proc.h>
 #include <current.h>
@@ -37,16 +36,27 @@
 #include <vm.h>
 #include <vfs.h>
 #include <syscall.h>
-#include <test.h>
 #include <file_syscalls.h>
 #include <uio.h>
 #include <synch.h>
 #include <vnode.h>
+#include <copyinout.h>
 
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 {
-	struct filehandle *fh = curproc->filetable[fd];
+	int ret = copycheck((const_userptr_t)buf, buflen, &buflen);
+	if(ret > 0) {
+		*retval = -1;
+		return EFAULT;
+	}	
+	
+	if(curproc->filetable[fd] == NULL) {
+		*retval = -1;
+		return EBADF;
+	}	
+	
+	struct filehandle *fh = curproc->filetable[fd];	
 	struct iovec iov;
 	struct uio u;
 	
@@ -63,16 +73,11 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	lock_acquire(fh->fh_lock);
 	int result = VOP_WRITE(fh->fh_vnode, &u);
 	if(result) {
-		// Meaningless, just hacked for now
-		return 1;
-	}
-	fh->fh_offset_value = u.uio_offset;
-	int result2 = VOP_WRITE(fh->fh_vnode, &u);
-	if(result2) {
-		return 1;
+		*retval = -1;
+		return result;
 	}
 	fh->fh_offset_value = u.uio_offset;
 	lock_release(fh->fh_lock);
-	*retval = 1;
+	*retval = u.uio_resid;
 	return 0;
 }
