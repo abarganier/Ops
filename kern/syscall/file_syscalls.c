@@ -45,12 +45,6 @@
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 {
-	int ret = copycheck((const_userptr_t)buf, buflen, &buflen);
-	if(ret > 0) {
-		*retval = -1;
-		return EFAULT;
-	}	
-	
 	if(curproc->filetable[fd] == NULL) {
 		*retval = -1;
 		return EBADF;

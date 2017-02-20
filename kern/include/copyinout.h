@@ -68,7 +68,6 @@ int copyin(const_userptr_t usersrc, void *dest, size_t len);
 int copyout(const void *src, userptr_t userdest, size_t len);
 int copyinstr(const_userptr_t usersrc, char *dest, size_t len, size_t *got);
 int copyoutstr(const char *src, userptr_t userdest, size_t len, size_t *got);
-int copycheck(const_userptr_t, size_t, size_t *);
 
 
 #endif /* _COPYINOUT_H_ */
