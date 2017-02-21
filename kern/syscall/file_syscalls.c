@@ -60,6 +60,7 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	int err = copyin(buf, testbuf, buflen);
 	if(err) {
 		*retval = -1;
+		lock_release(fh->fh_lock);
 		return 1;
 	}
 
@@ -76,6 +77,7 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	int result = VOP_WRITE(fh->fh_vnode, &u);
 	if(result) {
 		*retval = -1;
+		lock_release(fh->fh_lock);
 		return result;
 	}
 	fh->fh_offset_value = u.uio_offset;
