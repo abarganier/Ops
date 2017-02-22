@@ -115,6 +115,12 @@ syscall(struct trapframe *tf)
 		err = sys_write((int)tf->tf_a0, (const void *)tf->tf_a1, (size_t)tf->tf_a2, &retval);
 		break;
 
+	    case SYS_open:
+		/*Not positive on these arguments*/
+		err = sys_open((const char *) tf->tf_a0, (int) tf->tf_a1);
+		
+		break;
+
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
