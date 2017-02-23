@@ -41,7 +41,7 @@
 #include <synch.h>
 #include <vnode.h>
 #include <copyinout.h>
-#include <string.h> /*Used for strcmp in sys_open*/
+#include <string.h>
 
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
@@ -91,87 +91,55 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 }
 
 int
-sys_open(const char *filename, int flags){
+sys_open(const char *filename, int flags, int32_t * retval){
 
-	/*Do error checking for filename here*/
-
-
-	//create a filehandle fh
 	struct filehandle *newFH;
 
-	//declare int for index of file handle in file table
-	int intOfFilehandle;
+	int indexOfFilehandle;
+	newFH = filehandle_create(filename, flags); 
 
-	/*filehandle_create takes a fh_perm permission variable. Where do we find those values?*/
-	newFH = filehandle_create(filename, insertPermissionVariableHere); 
+	lock_acquire(newFH->fh_lock);
 
-	//get lock from filehandle before proceeding
-	lock_acquire(newFH->fh_lock); /*Does this actually protect anything? We create 
-					a new lock in every call to sys_open. Maybe
-					use proc's spinlock instead?*/
-
-	/*Search filetable for existing fd pointing to the file and first null pointer*/
-	/*Note: Correctness first. Efficiency second. Going with 2 separate loops for now*/
 	int i;
-	bool foundMatchingFileInFiletable = false;
+	bool file_found = false;
+	int free_index = 64;
+
 	for(i=3; i<64;i++){
-		if (curthread->filetable[i] != NULL){
-			//check if filehandle name matches filename
-			if(strcmp(curthread->filetable[i]->fh_name,filename) == 0){
-				//they are the same
-				foundMatchingFileInFiletable = true;
+
+		if (curproc->filetable[i] != NULL) {
+
+			if(strcmp(curproc->filetable[i]->fh_name,filename) == 0) {
+
+				file_found = true;
+				bool valid_perm = curproc->filetable[i]->fh_perm == flags;
 				
-				//do some things and return (error checking?)
-				lock_release(newFH->fh_lock);
-				filehandle_destroy(newFH);
-				return i;
+				if(valid_perm) {
+					*retval = i;
+					curproc->filetable[i]->num_open_proc++;
+					lock_release(newFH->fh_lock);
+					filehandle_destroy(newFH);	
+					return 0;
+				}
 			}
+		} else {
+			free_index = i < free_index ? i : free_index; 
 		}
 	}
 
-	if(foundMatchingFileInFiletable == false){
-		//Search for first null pointer in file table
-		for(i=3; i<64;i++){
-			if(curthread->filetable[i] == NULL){
-				//add pointer to new filehandle
-				break;
-			}
-		}
-		//Consider adding code here to handle the case where the filetable is full
-	}
-
-	/*-------------------NOTES---------------------*/
-	//search filetable for existing fd pointing to the file and first null pointer
-	//	if file descriptor fd* is found, 
-	//		add new file descriptor to file table
-	//		make it point to same fh as fd*
-	//		increment num_open_proc on fh
-	//		(dont forget to destroy new fh after done with lock)
-	//	else put pointer to new fh in null pointer pos and call vfs_open
-	//if open fails, 
-	//	destroy file descriptor
-	//	decrement num_open_proc on fh
-	//	destroy new fh (release lock first)
-	//
-	//add in error checking at appropriate spots after above is coded
-	//return appropriate value
-	/*------------------NOTES---------------------*/
-
-
-	/*Should not reach here unless safe to call vfs_open*/
 	result = vfs_open(filename, flags, 0, &newFH->fh_vnode);
-	/*This covers which error codes?*/
-		/*I think: EINVAL, ENXIO, and ENODEV, from what I could find digging around*/
 	if(result){
+		*retval = result;
 		lock_release(newFH->fh_lock);
-		//destroy stuff
 		filehandle_destroy(newFH);
-		return result;
+		return 1;
 	}
-
-	/*Did we hit every error check we were supposed to hit?*/
-
+	newFH->num_open_proc++;
+	curproc->filetable[free_index] = newFH;
+	*retval = free_index;
+	/*
+	 * TODO: Set filehandle offset to EOF, figure out if we can use a kernel space library for string compare
+	 */
 	lock_release(newFH->fh_lock);
-	return indexOfFilehandle;
+	return 0;
 
 }
