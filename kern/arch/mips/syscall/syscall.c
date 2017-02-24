@@ -117,7 +117,7 @@ syscall(struct trapframe *tf)
 
 	    case SYS_open:
 			/*Not positive on these arguments*/
-			err = sys_open((const char *) tf->tf_a0, (int) tf->tf_a1, &retVal);
+			err = sys_open((const char *) tf->tf_a0, (int) tf->tf_a1, &retval);
 			
 			break;
 

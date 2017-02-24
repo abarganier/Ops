@@ -41,7 +41,6 @@
 #include <synch.h>
 #include <vnode.h>
 #include <copyinout.h>
-#include <string.h>
 
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
@@ -95,13 +94,26 @@ sys_open(const char *filename, int flags, int32_t * retval){
 
 	struct filehandle *newFH;
 
-	int indexOfFilehandle;
 	newFH = filehandle_create(filename, flags); 
 
 	lock_acquire(newFH->fh_lock);
 
+	int result;
+
+	size_t length_of_filename = strlen(filename);
+	char *filename_cpy = kmalloc(sizeof(filename));
+	result = copyin((userptr_t) filename, filename_cpy, length_of_filename);	/* Handles EFAULT*/
+	if (result){
+		*retval = result;
+		lock_release(newFH->fh_lock);
+		filehandle_destroy(newFH);
+		return 1;
+	}
+
+
+
 	int i;
-	bool file_found = false;
+	//bool file_found = false; /*Where did we plan to use this?*/
 	int free_index = 64;
 
 	for(i=3; i<64;i++){
@@ -110,7 +122,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 
 			if(strcmp(curproc->filetable[i]->fh_name,filename) == 0) {
 
-				file_found = true;
+				//file_found = true;	/*Don't think this is needed*/
 				bool valid_perm = curproc->filetable[i]->fh_perm == flags;
 				
 				if(valid_perm) {
@@ -126,7 +138,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 		}
 	}
 
-	result = vfs_open(filename, flags, 0, &newFH->fh_vnode);
+	result = vfs_open(filename_cpy, flags, 0, &newFH->fh_vnode); /*Does it matter that filename_cpy is in kernel space?*/
 	if(result){
 		*retval = result;
 		lock_release(newFH->fh_lock);
@@ -137,7 +149,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 	curproc->filetable[free_index] = newFH;
 	*retval = free_index;
 	/*
-	 * TODO: Set filehandle offset to EOF, figure out if we can use a kernel space library for string compare
+	 * TODO: Set filehandle offset to EOF
 	 */
 	lock_release(newFH->fh_lock);
 	return 0;
