@@ -88,6 +88,8 @@ struct proc {
 
 	/* add more material here as needed */
 	struct filehandle* filetable[64];
+
+	struct lock *proc_lock;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */

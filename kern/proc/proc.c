@@ -84,6 +84,15 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
+	/*Maybe this'll work*/
+	proc->proc_lock = lock_create("proc lock!");
+	if(proc->proc_lock == NULL){
+		kfree(proc->p_name);
+		spinlock_release(&proc->p_lock);
+		kfree(proc);
+		return NULL;
+	}
+
 	return proc;
 }
 
@@ -166,6 +175,8 @@ proc_destroy(struct proc *proc)
 		}
 		as_destroy(as);
 	}
+
+	lock_destroy(proc->proc_lock); /*Maybe this'll be useful*/
 
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);

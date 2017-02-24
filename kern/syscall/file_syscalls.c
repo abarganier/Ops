@@ -96,6 +96,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 
 	newFH = filehandle_create(filename, flags); 
 
+	lock_acquire(curproc->proc_lock);
 	lock_acquire(newFH->fh_lock);
 
 	int result;
@@ -106,6 +107,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 	if (result){
 		*retval = result;
 		lock_release(newFH->fh_lock);
+		lock_release(curproc->proc_lock);
 		filehandle_destroy(newFH);
 		return 1;
 	}
@@ -129,6 +131,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 					*retval = i;
 					curproc->filetable[i]->num_open_proc++;
 					lock_release(newFH->fh_lock);
+					lock_release(curproc->proc_lock);
 					filehandle_destroy(newFH);	
 					return 0;
 				}
@@ -143,6 +146,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 	if(result){
 		*retval = result;
 		lock_release(newFH->fh_lock);
+		lock_release(curproc->proc_lock);
 		filehandle_destroy(newFH);
 		return 1;
 	}
@@ -153,6 +157,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 	 * TODO: Set filehandle offset to EOF
 	 */
 	lock_release(newFH->fh_lock);
+	lock_release(curproc->proc_lock);
 	return 0;
 
 }
