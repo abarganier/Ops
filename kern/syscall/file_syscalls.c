@@ -138,6 +138,7 @@ sys_open(const char *filename, int flags, int32_t * retval){
 		}
 	}
 
+	/*Handles EINVAL, ENXIO, ENODEV*/
 	result = vfs_open(filename_cpy, flags, 0, &newFH->fh_vnode); /*Does it matter that filename_cpy is in kernel space?*/
 	if(result){
 		*retval = result;
