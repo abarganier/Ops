@@ -92,72 +92,54 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 int
 sys_open(const char *filename, int flags, int32_t * retval){
 
-	struct filehandle *newFH;
+	struct filehandle *new_fh;
 
-	newFH = filehandle_create(filename, flags); 
-
-	lock_acquire(curproc->proc_lock);
-	lock_acquire(newFH->fh_lock);
-
-	int result;
-
-	size_t length_of_filename = strlen(filename);
-	char *filename_cpy = kmalloc(sizeof(filename));
-	result = copyin((userptr_t) filename, filename_cpy, length_of_filename);	/* Handles EFAULT*/
-	if (result){
-		*retval = result;
-		lock_release(newFH->fh_lock);
-		lock_release(curproc->proc_lock);
-		filehandle_destroy(newFH);
+	new_fh = filehandle_create(filename, flags);
+	if(new_fh == NULL) {
+		*retval = -1;
+		lock_release(new_fh->fh_lock);
+		filehandle_destroy(new_fh);
 		return 1;
 	}
 
+	lock_acquire(new_fh->fh_lock);
 
+	int result;
+
+	char *filename_cpy = kmalloc(sizeof(filename));
+
+	/* Handles EFAULT*/
+	result = copyin((userptr_t) filename, filename_cpy, (size_t)strlen(filename));
+	if (result) {
+		*retval = result;
+		lock_release(new_fh->fh_lock);
+		filehandle_destroy(new_fh);
+		return 1;
+	}
 
 	int i;
-	//bool file_found = false; /*Where did we plan to use this?*/
-	int free_index = 64;
+	int free_index = 63;
 
 	for(i=3; i<64;i++){
-
-		if (curproc->filetable[i] != NULL) {
-
-			if(strcmp(curproc->filetable[i]->fh_name,filename) == 0) {
-
-				//file_found = true;	/*Don't think this is needed*/
-				bool valid_perm = curproc->filetable[i]->fh_perm == flags;
-				
-				if(valid_perm) {
-					*retval = i;
-					curproc->filetable[i]->num_open_proc++;
-					lock_release(newFH->fh_lock);
-					lock_release(curproc->proc_lock);
-					filehandle_destroy(newFH);	
-					return 0;
-				}
-			}
-		} else {
-			free_index = i < free_index ? i : free_index; 
+		if(curproc->filetable[i] == NULL) {
+			free_index = i < free_index ? i : free_index;
+			break;
 		}
 	}
 
 	/*Handles EINVAL, ENXIO, ENODEV*/
-	result = vfs_open(filename_cpy, flags, 0, &newFH->fh_vnode); /*Does it matter that filename_cpy is in kernel space?*/
+	result = vfs_open(filename_cpy, flags, 0, &new_fh->fh_vnode);
 	if(result){
 		*retval = result;
-		lock_release(newFH->fh_lock);
-		lock_release(curproc->proc_lock);
-		filehandle_destroy(newFH);
+		lock_release(new_fh->fh_lock);
+		filehandle_destroy(new_fh);
 		return 1;
 	}
-	newFH->num_open_proc++;
-	curproc->filetable[free_index] = newFH;
+	new_fh->num_open_proc++;
+	curproc->filetable[free_index] = new_fh;
 	*retval = free_index;
-	/*
-	 * TODO: Set filehandle offset to EOF
-	 */
-	lock_release(newFH->fh_lock);
-	lock_release(curproc->proc_lock);
+
+	lock_release(new_fh->fh_lock);
 	return 0;
 
 }
