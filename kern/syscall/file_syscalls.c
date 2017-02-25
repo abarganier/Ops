@@ -106,7 +106,7 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	char *filename_cpy = kmalloc(sizeof(filename));
 
 	int result;
-	
+
 	/* Handles EFAULT*/
 	result = copyin((userptr_t)filename, filename_cpy, (size_t)strlen(filename));
 	if (result) {
@@ -147,7 +147,7 @@ int
 sys_close(int fd, int32_t * retval)
 {
 	// Cannot close console files
-	if(fd < 3 || fd > 63) {
+	if(fd < 0 || fd > 63) {
 		*retval = -1;
 		return 1;
 	}
