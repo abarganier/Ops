@@ -225,23 +225,44 @@ proc_create_runprogram(const char *name)
 	}
 	spinlock_release(&curproc->p_lock);
 
+	int result;
 	/* Add elements to file table */
 	newproc->filetable[0] = filehandle_create("con:", STDIN_FILENO); 
 	if(newproc->filetable[0] == NULL){
 		proc_destroy(newproc);	
 		return NULL;
 	}
+	result = vfs_open(newproc->filetable[0]->fh_name, STDIN_FILENO, 0, &newproc->filetable[0]->fh_vnode);
+	if(result) {
+		proc_destroy(newproc);	 
+		return NULL;
+	}
+
 	newproc->filetable[1] = filehandle_create("con:", STDOUT_FILENO); 
-	if(newproc->filetable[0] == NULL){
+	if(newproc->filetable[1] == NULL){
 		filehandle_destroy(newproc->filetable[0]);
 		proc_destroy(newproc);	
 		return NULL;
 	}
+	result = vfs_open(newproc->filetable[1]->fh_name, STDOUT_FILENO, 0, &newproc->filetable[1]->fh_vnode);
+	if(result) {
+		filehandle_destroy(newproc->filetable[0]);
+		proc_destroy(newproc);	 
+		return NULL;
+	}
+
 	newproc->filetable[2] = filehandle_create("con:", STDERR_FILENO); 
-	if(newproc->filetable[0] == NULL){
+	if(newproc->filetable[2] == NULL){
 		filehandle_destroy(newproc->filetable[0]);
 		filehandle_destroy(newproc->filetable[1]);
 		proc_destroy(newproc);		
+		return NULL;
+	}
+	result = vfs_open(newproc->filetable[2]->fh_name, STDERR_FILENO, 0, &newproc->filetable[2]->fh_vnode);
+	if(result) {
+		filehandle_destroy(newproc->filetable[0]);
+		filehandle_destroy(newproc->filetable[1]);
+		proc_destroy(newproc);	 
 		return NULL;
 	}
 	return newproc;
@@ -363,13 +384,6 @@ filehandle_create(const char *name, int fh_perm)
 		kfree(filehandle);
 		return NULL;
 	}
-	
-	int ret_val = vfs_open(filehandle->fh_name, fh_perm, 0, &filehandle->fh_vnode);  
-	if(ret_val){
-		kfree(filehandle->fh_name);
-		kfree(filehandle);
-		return NULL;
-	}
 
 	filehandle->fh_perm = fh_perm; /**/
 	
@@ -397,7 +411,6 @@ filehandle_destroy(struct filehandle *filehandle)
 	
 	lock_destroy(filehandle->fh_lock);
 	kfree(filehandle->fh_name);
-	vfs_close(filehandle->fh_vnode);
 	kfree(filehandle);
 }
 

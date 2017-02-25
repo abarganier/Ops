@@ -105,19 +105,19 @@ syscall(struct trapframe *tf)
 			break;
 
 	    case SYS___time:
-			err = sys___time((userptr_t)tf->tf_a0,
-					 (userptr_t)tf->tf_a1);
+			err = sys___time((userptr_t)tf->tf_a0, (userptr_t)tf->tf_a1);
 			break;
 
 	    case SYS_write:
-			// put result for userspace code in retval (v0). 
-			// pass to sys_write so we can set the value in the call.
 			err = sys_write((int)tf->tf_a0, (const void *)tf->tf_a1, (size_t)tf->tf_a2, &retval);
 			break;
 
+		case SYS_read:
+			err = sys_read((int)tf->tf_a0, (void *)tf->tf_a1, (size_t)tf->tf_a2, &retval);
+			break;
+
 	    case SYS_open:
-			/*Not positive on these arguments*/
-			err = sys_open((const char *) tf->tf_a0, (int) tf->tf_a1, &retval);
+			err = sys_open((const char *)tf->tf_a0, (int)tf->tf_a1, &retval);
 			break;
 
 		case SYS_close:

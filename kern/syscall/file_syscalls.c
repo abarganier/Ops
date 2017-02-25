@@ -46,7 +46,7 @@ ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 {
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
-		*retval = -1;
+		*retval = EBADF;
 		return EBADF;
 	}	
 	
@@ -55,17 +55,21 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	struct uio u;
 	
 	lock_acquire(fh->fh_lock);
-	char * testbuf = kmalloc(sizeof(buf));		
-	/*What if kmalloc fails for testbuf?*/
 
+	char * inbuf = kmalloc(sizeof(buf));
+	KASSERT(inbuf != NULL);
 
-	int err = copyin(buf, testbuf, buflen);
+	/* We don't actually need to copyin here. This just checks
+	for valid memory region. Add 1 to length for null terminator. */
+	int err = copyin(buf, inbuf, buflen+1);
 	if(err) {
-		*retval = -1;
+		*retval = EFAULT;
 		lock_release(fh->fh_lock);
-		return 1;
+		kfree(inbuf);
+		return EFAULT;
 	}
-
+	kfree(inbuf);
+	
 	iov.iov_ubase = (userptr_t)buf;
 	iov.iov_len = buflen;
 	u.uio_iov = &iov;	
@@ -78,12 +82,58 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	
 	int result = VOP_WRITE(fh->fh_vnode, &u);
 	if(result) {
-		*retval = -1;
+		*retval = result;
 		lock_release(fh->fh_lock);
 		return result;
 	}
 	fh->fh_offset_value = u.uio_offset;
-	*retval = u.uio_resid;
+
+	/* Seems like uio_resid is always zero.. Set to buflen for now, ask in office hours. */
+	*retval = buflen;
+
+	lock_release(fh->fh_lock);
+	return 0;
+}
+
+ssize_t
+sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
+{
+	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
+		*retval = EBADF;
+		return EBADF;
+	}
+
+	if(buf == NULL || buflen < 1) {
+		*retval = -1;
+		return 1;
+	}
+
+	struct filehandle *fh = curproc->filetable[fd];
+	struct iovec iov;
+	struct uio u;
+
+	lock_acquire(fh->fh_lock);
+
+	iov.iov_ubase = (userptr_t)buf;
+	iov.iov_len = buflen;
+	u.uio_iov = &iov;	
+	u.uio_iovcnt = 1; 
+	u.uio_resid = buflen;
+	u.uio_offset = fh->fh_offset_value;
+	u.uio_segflg = UIO_USERSPACE;
+	u.uio_rw = UIO_READ;
+	u.uio_space = curproc->p_addrspace;
+
+	int result = VOP_READ(fh->fh_vnode, &u);
+	if(result) {
+		*retval = result;
+		lock_release(fh->fh_lock);
+		return result;
+	}
+	fh->fh_offset_value = u.uio_offset;
+
+	/* Seems like uio_resid is always zero.. Set to buflen for now, ask in office hours. */
+	*retval = buflen;
 
 	lock_release(fh->fh_lock);
 	return 0;
@@ -93,8 +143,18 @@ int
 sys_open(const char *filename, int flags, int32_t * retval)
 {
 	struct filehandle *new_fh;
+	int result;
+	char *filename_cpy = kmalloc(sizeof(filename));
 
-	new_fh = filehandle_create(filename, flags);
+	/* Handles EFAULT. Add 1 to strlen for null terminator */
+	result = copyin((const_userptr_t)filename, (void*)filename_cpy, (size_t)(strlen(filename)+1));
+	if (result) {
+		*retval = result;
+		return result;
+	}
+
+	/* Still need to call vfs_open */
+	new_fh = filehandle_create(filename_cpy, flags);
 	if(new_fh == NULL) {
 		*retval = -1;
 		filehandle_destroy(new_fh);
@@ -102,19 +162,6 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	}
 
 	lock_acquire(new_fh->fh_lock);
-
-	char *filename_cpy = kmalloc(sizeof(filename));
-
-	int result;
-
-	/* Handles EFAULT*/
-	result = copyin((userptr_t)filename, filename_cpy, (size_t)strlen(filename));
-	if (result) {
-		*retval = result;
-		lock_release(new_fh->fh_lock);
-		filehandle_destroy(new_fh);
-		return 1;
-	}
 
 	int i;
 	int free_index = 63;
@@ -126,8 +173,8 @@ sys_open(const char *filename, int flags, int32_t * retval)
 		}
 	}
 
-	/*Handles EINVAL, ENXIO, ENODEV*/
-	result = vfs_open(filename_cpy, flags, 0, &new_fh->fh_vnode);
+	/* Handles EINVAL, ENXIO, ENODEV */
+	result = vfs_open(new_fh->fh_name, new_fh->fh_perm, 0, &new_fh->fh_vnode);
 	if(result){
 		*retval = result;
 		lock_release(new_fh->fh_lock);
@@ -146,16 +193,11 @@ sys_open(const char *filename, int flags, int32_t * retval)
 int 
 sys_close(int fd, int32_t * retval)
 {
-	// Cannot close console files
-	if(fd < 0 || fd > 63) {
-		*retval = -1;
-		return 1;
-	}
-
-	if(curproc->filetable[fd] == NULL) {
+	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = EBADF;
 		return 1;
 	}
+
 	struct filehandle *fh = curproc->filetable[fd];
 	lock_acquire(fh->fh_lock);
 
