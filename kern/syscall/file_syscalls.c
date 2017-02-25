@@ -90,26 +90,25 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 }
 
 int
-sys_open(const char *filename, int flags, int32_t * retval){
-
+sys_open(const char *filename, int flags, int32_t * retval)
+{
 	struct filehandle *new_fh;
 
 	new_fh = filehandle_create(filename, flags);
 	if(new_fh == NULL) {
 		*retval = -1;
-		lock_release(new_fh->fh_lock);
 		filehandle_destroy(new_fh);
 		return 1;
 	}
 
 	lock_acquire(new_fh->fh_lock);
 
-	int result;
-
 	char *filename_cpy = kmalloc(sizeof(filename));
 
+	int result;
+	
 	/* Handles EFAULT*/
-	result = copyin((userptr_t) filename, filename_cpy, (size_t)strlen(filename));
+	result = copyin((userptr_t)filename, filename_cpy, (size_t)strlen(filename));
 	if (result) {
 		*retval = result;
 		lock_release(new_fh->fh_lock);
@@ -135,11 +134,47 @@ sys_open(const char *filename, int flags, int32_t * retval){
 		filehandle_destroy(new_fh);
 		return 1;
 	}
+
 	new_fh->num_open_proc++;
 	curproc->filetable[free_index] = new_fh;
 	*retval = free_index;
 
 	lock_release(new_fh->fh_lock);
 	return 0;
+}
 
+int 
+sys_close(int fd, int32_t * retval)
+{
+	// Cannot close console files
+	if(fd < 3 || fd > 63) {
+		*retval = -1;
+		return 1;
+	}
+
+	if(curproc->filetable[fd] == NULL) {
+		*retval = EBADF;
+		return 1;
+	}
+	struct filehandle *fh = curproc->filetable[fd];
+	lock_acquire(fh->fh_lock);
+
+	fh->num_open_proc--;
+	if(fh->num_open_proc < 1) {
+		// vfs_close cannot fail. See vfspath.c:119 for details.
+		vfs_close(fh->fh_vnode);
+		
+		curproc->filetable[fd] = NULL;
+		lock_release(fh->fh_lock);
+		filehandle_destroy(fh);
+
+		*retval = 0;
+		return 0;
+	} else {
+		curproc->filetable[fd] = NULL;
+		lock_release(fh->fh_lock);
+
+		*retval = 0;
+		return 0;
+	}
 }
