@@ -45,7 +45,7 @@ struct vnode;
 struct filehandle {
 	char *fh_name;					/*Filename */
 	struct vnode *fh_vnode;			/*Points to file object. vfs_open must be called explicitly by user. */
-	volatile int fh_offset_value;		
+	volatile off_t fh_offset_value;		
 	volatile int num_open_proc;		/*Counter for num of threads or processes with access to filehandle */
 	struct lock *fh_lock;
 	int fh_perm;					/*Permission variable */

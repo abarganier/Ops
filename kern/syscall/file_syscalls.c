@@ -31,10 +31,12 @@
 #include <kern/errno.h>
 #include <lib.h>
 #include <proc.h>
+#include <kern/seek.h>
 #include <current.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <vfs.h>
+#include <stat.h>
 #include <syscall.h>
 #include <file_syscalls.h>
 #include <uio.h>
@@ -243,5 +245,39 @@ sys_dup2(int fdold, int fdnew, int32_t * retval)
 
 	curproc->filetable[fdnew] = curproc->filetable[fdold];
 	*retval = fdnew;
+	return 0;
+}
+
+off_t 
+sys_lseek(int fd, off_t pos, int whence, off_t * retval)
+{
+	if(fd < 0 || fd > 63 || pos < 0 || curproc->filetable[fd] == NULL) {
+		*retval = (off_t)EBADF;
+		return (off_t)EBADF;
+	}
+
+	if(whence < 0 || whence > 2) {
+		*retval = (off_t)EINVAL;
+		return (off_t)EINVAL;
+	}
+
+	struct filehandle * fh = curproc->filetable[fd];
+	lock_acquire(fh->fh_lock);
+	if(!VOP_ISSEEKABLE(fh->fh_vnode)) {
+		lock_release(fh->fh_lock);
+		*retval = (off_t)ESPIPE;
+		return (off_t)ESPIPE;
+	}
+
+	if(whence == SEEK_SET) {
+		fh->fh_offset_value = pos;
+	} else if(whence == SEEK_CUR) {
+		fh->fh_offset_value += pos;	
+	} else { // seek_end
+		struct stat st;
+		VOP_STAT(fh->fh_vnode, &st);
+		fh->fh_offset_value = st.st_size + pos;
+	}
+	*retval = fh->fh_offset_value;
 	return 0;
 }
