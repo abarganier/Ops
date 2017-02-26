@@ -200,7 +200,15 @@ sys_close(int fd, int32_t * retval)
 
 	struct filehandle *fh = curproc->filetable[fd];
 	lock_acquire(fh->fh_lock);
+	sys_close_helper(fh, fd); // releases lock
+	*retval = 0;
+	return 0;
+}
 
+void
+sys_close_helper(struct filehandle * fh, int fd) {
+	/* Must acquire fh_lock before calling! */
+	KASSERT(fh != NULL);
 	fh->num_open_proc--;
 	if(fh->num_open_proc < 1) {
 		// vfs_close cannot fail. See vfspath.c:119 for details.
@@ -210,13 +218,30 @@ sys_close(int fd, int32_t * retval)
 		lock_release(fh->fh_lock);
 		filehandle_destroy(fh);
 
-		*retval = 0;
-		return 0;
 	} else {
 		curproc->filetable[fd] = NULL;
 		lock_release(fh->fh_lock);
-
-		*retval = 0;
-		return 0;
 	}
+}
+
+int
+sys_dup2(int fdold, int fdnew, int32_t * retval)
+{
+	if(fdold < 0 || fdold > 63 || 
+		fdnew < 0 || fdnew > 63 || 
+		curproc->filetable[fdold] == NULL) 
+	{
+		*retval = EBADF;
+		return EBADF;
+	}
+
+	if(curproc->filetable[fdnew] != NULL) {
+		struct filehandle * fh = curproc->filetable[fdnew];
+		lock_acquire(fh->fh_lock);
+		sys_close_helper(fh, fdnew); // releases lock
+	}
+
+	curproc->filetable[fdnew] = curproc->filetable[fdold];
+	*retval = fdnew;
+	return 0;
 }
