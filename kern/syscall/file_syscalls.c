@@ -235,14 +235,21 @@ sys_dup2(int fdold, int fdnew, int32_t * retval)
 }
 
 off_t 
-sys_lseek(int fd, off_t pos, int whence, off_t * retval)
+sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 {
 	if(fd < 0 || fd > 63 || pos < 0 || curproc->filetable[fd] == NULL) {
 		*retval = (off_t)EBADF;
 		return (off_t)EBADF;
 	}
 
-	if(whence < 0 || whence > 2) {
+	int whencebuf = 0;
+	int err = copyin((const_userptr_t)whence, (void*)&whencebuf, 4);
+	if(err) {
+		*retval = (off_t)EINVAL;
+		return (off_t)EINVAL;
+	}
+
+	if(whencebuf < 0 || whencebuf > 2) {
 		*retval = (off_t)EINVAL;
 		return (off_t)EINVAL;
 	}
@@ -255,15 +262,16 @@ sys_lseek(int fd, off_t pos, int whence, off_t * retval)
 		return (off_t)ESPIPE;
 	}
 
-	if(whence == SEEK_SET) {
+	if(whencebuf == SEEK_SET) {
 		fh->fh_offset_value = pos;
-	} else if(whence == SEEK_CUR) {
+	} else if(whencebuf == SEEK_CUR) {
 		fh->fh_offset_value += pos;	
 	} else { // seek_end
 		struct stat st;
 		VOP_STAT(fh->fh_vnode, &st);
 		fh->fh_offset_value = st.st_size + pos;
 	}
+	kprintf("sys_lseek: new offset is %ld\n", (long)fh->fh_offset_value);
 	*retval = fh->fh_offset_value;
 	return 0;
 }

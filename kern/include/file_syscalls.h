@@ -12,5 +12,7 @@ int sys_open(const char *, int, int32_t *);
 int sys_close(int, int32_t *);
 int sys_dup2(int, int, int32_t *);
 void sys_close_helper(struct filehandle *, int);
-off_t sys_lseek(int, off_t, int, off_t *);
+off_t sys_lseek(int, off_t, const void *, off_t *);
+
+
 #endif /* _FILE_SYSCALLS_H_ */
