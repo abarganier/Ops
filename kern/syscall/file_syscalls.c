@@ -57,20 +57,6 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	struct uio u;
 	
 	lock_acquire(fh->fh_lock);
-
-	char * inbuf = kmalloc(sizeof(buf));
-	KASSERT(inbuf != NULL);
-
-	/* We don't actually need to copyin here. This just checks
-	for valid memory region. Add 1 to length for null terminator. */
-	int err = copyin(buf, inbuf, buflen+1);
-	if(err) {
-		*retval = EFAULT;
-		lock_release(fh->fh_lock);
-		kfree(inbuf);
-		return EFAULT;
-	}
-	kfree(inbuf);
 	
 	iov.iov_ubase = (userptr_t)buf;
 	iov.iov_len = buflen;
@@ -147,9 +133,9 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	struct filehandle *new_fh;
 	int result;
 	char *filename_cpy = kmalloc(sizeof(filename));
-
+	size_t size = 0;
 	/* Handles EFAULT. Add 1 to strlen for null terminator */
-	result = copyin((const_userptr_t)filename, (void*)filename_cpy, (size_t)(strlen(filename)+1));
+	result = copyinstr((const_userptr_t)filename, (void*)filename_cpy, (size_t)100, &size);
 	if (result) {
 		*retval = result;
 		return result;
