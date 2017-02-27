@@ -81,7 +81,7 @@ syscall(struct trapframe *tf)
 	int callno;
 	int32_t retval;
 	off_t retval64;
-	off_t pos = 0; 
+	unsigned long long pos = 0; 
 	off_t err64 = 0;
 	bool is64 = false;
 	int err = 0;
@@ -134,11 +134,14 @@ syscall(struct trapframe *tf)
 			break;
 
 		case SYS_lseek:
+			is64 = true;
 			pos |= tf->tf_a2;
 			pos <<= 32;
 			pos |= tf->tf_a3;
-			is64 = true;
-			err64 = sys_lseek((int)tf->tf_a0, pos, (int)(tf->tf_sp+16), &retval64);
+
+
+
+			err64 = sys_lseek((int)tf->tf_a0, pos, (const void *)(tf->tf_sp+16), &retval64);
 			break;
 	    
 	    default:

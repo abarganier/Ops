@@ -271,7 +271,9 @@ sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 		VOP_STAT(fh->fh_vnode, &st);
 		fh->fh_offset_value = st.st_size + pos;
 	}
-	kprintf("sys_lseek: new offset is %ld\n", (long)fh->fh_offset_value);
+	//kprintf("sys_lseek: new offset is %lld\n", (long long)fh->fh_offset_value);
 	*retval = fh->fh_offset_value;
+	lock_release(fh->fh_lock);
+
 	return 0;
 }
