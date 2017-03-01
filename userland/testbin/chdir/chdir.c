@@ -32,7 +32,7 @@
  *
  * 	Tests whether the chdir syscall works in at least in simple use cases.
  *
- * This should run correctly when the chdir syscall is implemented. 
+ * This should run correctly when the chdir syscall is implemented.
  */
 
 #include <stdlib.h>
@@ -57,12 +57,12 @@ main(int argc, char **argv)
 
 	ret = chdir(directory);
 	if(ret) {
-		free((void*)directory);
 		err(-1, "chdir failed, error returned: %d\n", ret);
+		free((void*)directory);
 	}
 
 	printf("chdir returned a success code: %d\n", ret);
 	success(TEST161_SUCCESS, SECRET, "/testbin/chdir");
-
+	
 	return 0;
 }

@@ -242,26 +242,22 @@ sys_chdir(const char * pathname, int32_t * retval)
 		return EFAULT;
 	}
 
-	char *kpathname = kmalloc(sizeof(pathname));
+	char kpathname[256];
 	int result;
 	size_t size = 0;
 
-	result = copyinstr((const_userptr_t)pathname, (void*)kpathname, (size_t)256, &size);
+	result = copyinstr((const_userptr_t)pathname, (void*)&kpathname, (size_t)256, &size);
 	if (result) {
-		kfree(kpathname);
 		*retval = result;
 		return result;
 	}
 
 	result = vfs_chdir(kpathname);
 	if(result) {
-		kfree(kpathname);
 		*retval = result;
 		return result;
 	}
 
-	kfree(kpathname);
-	
 	*retval = 0;
 	return 0;
 }
