@@ -53,37 +53,18 @@ main(int argc, char **argv)
 	(void) argc;
 	(void) argv;
 
-//	char buf[100];
-// 	char buf[100] = "";
-// 	int ret = __getcwd(&buf, 100);
 
+   char directory[4];
+ //  char d2[7] = "Tester\0";
+   //char buf[5] = "Test\0";
+   int ret = __getcwd((char*)&directory, 4);
 
-// 	printf("getcwd returned the buf %s\n", &buf);
-// //	printf("retbuf is %s\n", retbuf);
-// 	printf("getcwd ret value is %d\n",ret);
-
-
-
-
-	// char * directory = malloc(sizeof(char)*101);
- //    int ret = __getcwd(directory, 100);
-
- //    free((void*)directory);
- //    printf("getcwd returned the buf %s\n", directory);
- //    printf("getcwd ret value is %d\n",ret);
-
-
-
-    // char directory[100];
-    // int ret = __getcwd(&directory, 101);
-
-    // printf("getcwd returned the buf %s\n", directory);
-    // printf("getcwd ret value is %d\n",ret);
-
-   char directory[100];
-   int ret = __getcwd((char*)&directory, 101);
+//   write(1, &d2, 7);
+   write(1, &directory, 100);
+   write(1,"\n",1);
 
    printf("getcwd returned the buf %s\n", directory);
+  
    printf("getcwd ret value is %d\n",ret);
 
 	return 0;

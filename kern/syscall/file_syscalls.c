@@ -291,6 +291,21 @@ sys___getcwd(char *buf, size_t buflen, int32_t *retval){
 
 	//vfs_getcwd needs a uio object and returns an int
 	struct uio u;
+	struct iovec iov;
+
+
+	iov.iov_ubase = (userptr_t)buf;
+	iov.iov_len = buflen;
+	u.uio_iov = &iov;	
+	u.uio_iovcnt = 1; 
+	u.uio_resid = buflen;
+	u.uio_offset = 0;
+	u.uio_segflg = UIO_USERSPACE;
+	u.uio_rw = UIO_READ;
+	u.uio_space = curproc->p_addrspace;
+
+
+
 	int result;
 	result = vfs_getcwd(&u);
 	if(result){
