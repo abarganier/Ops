@@ -12,6 +12,7 @@ int sys_open(const char *, int, int32_t *);
 int sys_close(int, int32_t *);
 int sys_dup2(int, int, int32_t *);
 void sys_close_helper(struct filehandle *, int);
+int sys_chdir(const char *, int32_t *);
 off_t sys_lseek(int, off_t, const void *, off_t *);
 
 

@@ -234,6 +234,38 @@ sys_dup2(int fdold, int fdnew, int32_t * retval)
 	return 0;
 }
 
+int
+sys_chdir(const char * pathname, int32_t * retval)
+{
+	if(pathname == NULL) {
+		*retval = EFAULT;
+		return EFAULT;
+	}
+
+	char *kpathname = kmalloc(sizeof(pathname));
+	int result;
+	size_t size = 0;
+
+	result = copyinstr((const_userptr_t)pathname, (void*)kpathname, (size_t)256, &size);
+	if (result) {
+		kfree(kpathname);
+		*retval = result;
+		return result;
+	}
+
+	result = vfs_chdir(kpathname);
+	if(result) {
+		kfree(kpathname);
+		*retval = result;
+		return result;
+	}
+
+	kfree(kpathname);
+	
+	*retval = 0;
+	return 0;
+}
+
 off_t 
 sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 {
@@ -277,3 +309,4 @@ sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 
 	return 0;
 }
+

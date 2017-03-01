@@ -113,6 +113,10 @@ syscall(struct trapframe *tf)
 			err = sys___time((userptr_t)tf->tf_a0, (userptr_t)tf->tf_a1);
 			break;
 
+		case SYS_chdir:
+			err = sys_chdir((const char *)tf->tf_a0, &retval);
+			break;
+			
 	    case SYS_write:
 			err = sys_write((int)tf->tf_a0, (const void *)tf->tf_a1, (size_t)tf->tf_a2, &retval);
 			break;
@@ -138,9 +142,6 @@ syscall(struct trapframe *tf)
 			pos |= tf->tf_a2;
 			pos <<= 32;
 			pos |= tf->tf_a3;
-
-
-
 			err64 = sys_lseek((int)tf->tf_a0, pos, (const void *)(tf->tf_sp+16), &retval64);
 			break;
 	    
