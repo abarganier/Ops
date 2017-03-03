@@ -60,14 +60,16 @@ struct proc_table *p_table;
 
 struct lock* pid_lock;
 
-volatile int pid_counter;
+volatile pid_t pid_counter;
+
+bool is_kproc = true;
 
 /* NOTE: proc_table is a singleton struct and should only ever be init'd once */
 struct proc_table *
 proc_table_create(void) 
 {
 	struct proc_table * new_ptable;
-	new_ptable = kmalloc(sizeof(new_ptable));
+	new_ptable = kmalloc(sizeof(*new_ptable));
 	if(new_ptable == NULL) {
 		return NULL;
 	}
@@ -91,12 +93,15 @@ proc_table_destroy(struct proc_table * table)
  * Assign next available PID
  */
 
-int
+pid_t
 next_pid(void)
 {
-	lock_acquire(p_table->pt_lock);
-	KASSERT(pid_counter < 256 && pid_counter >= PID_MIN);
-	int pid;
+	if(!is_kproc) {
+		lock_acquire(p_table->pt_lock);
+	}
+
+	KASSERT(pid_counter < 256 && pid_counter >= 0);
+	pid_t pid;
 
 	if(pid_counter > 255) {
 		pid_counter = PID_MIN;
@@ -116,7 +121,10 @@ next_pid(void)
 	KASSERT(p_table->table[pid] == NULL);
 
 	pid_counter++;
-	lock_release(p_table->pt_lock);
+	if(!is_kproc) {
+		lock_release(p_table->pt_lock);
+		is_kproc = false;
+	}
 	
 	return pid;
 }
@@ -252,6 +260,7 @@ proc_destroy(struct proc *proc)
 void
 proc_bootstrap(void)
 {
+	p_table = proc_table_create();
 	kproc = proc_create("[kernel]");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");

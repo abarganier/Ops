@@ -72,7 +72,7 @@ static const char harvard_copyright[] =
     "Copyright (c) 2000, 2001-2005, 2008-2011, 2013, 2014\n"
     "   President and Fellows of Harvard College.  All rights reserved.\n";
 
-
+struct proc_table *p_table;
 /*
  * Initial boot sequence.
  */
@@ -210,9 +210,7 @@ sys_reboot(int code)
 void
 kmain(char *arguments)
 {
-
-	pid_counter = PID_MIN;
-	
+	pid_counter = 0;
 	boot();
 	menu(arguments);
 	/* Should not get here */
