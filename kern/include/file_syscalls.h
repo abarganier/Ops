@@ -15,5 +15,7 @@ void sys_close_helper(struct filehandle *, int);
 int sys_chdir(const char *, int32_t *);
 off_t sys_lseek(int, off_t, const void *, off_t *);
 
+int sys___getcwd(char *, size_t , int32_t *);
+
 
 #endif /* _FILE_SYSCALLS_H_ */

@@ -306,3 +306,51 @@ sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 	return 0;
 }
 
+int
+sys___getcwd(char *buf, size_t buflen, int32_t *retval){
+
+	//error check buff
+	if(buf == NULL){
+		*retval = EFAULT;
+		return -1;
+	}
+
+	//Do I need to error check buflen?
+
+	//vfs_getcwd needs a uio object and returns an int
+	struct uio u;
+	struct iovec iov;
+
+
+	iov.iov_ubase = (userptr_t)buf;
+	iov.iov_len = buflen;
+	u.uio_iov = &iov;	
+	u.uio_iovcnt = 1; 
+	u.uio_resid = buflen;
+	u.uio_offset = 0;
+	u.uio_segflg = UIO_USERSPACE;
+	u.uio_rw = UIO_READ;
+	u.uio_space = curproc->p_addrspace;
+
+
+
+	int result;
+	result = vfs_getcwd(&u);
+	if(result){
+
+		*retval = result;
+		return -1;
+	}
+
+	//copyout to *buf in userspace
+	result = copyout(u.uio_iov->iov_ubase,(userptr_t) buf, buflen+1); //Need +1 for \0?
+	if(result){
+		*retval = result;
+		return -1;
+	}
+
+	//proc struct has a pointer proc_cwd. What do we do with this? When do we set this?
+	*retval = sizeof(buf);
+	return 0;
+
+}
