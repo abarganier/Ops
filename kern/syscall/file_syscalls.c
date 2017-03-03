@@ -321,6 +321,8 @@ sys___getcwd(char *buf, size_t buflen, int32_t *retval){
 		return -1;
 	}
 
+	//proc struct has a pointer proc_cwd. What do we do with this? When do we set this?
+
 	*retval = sizeof(buf);
 	return 0;
 
