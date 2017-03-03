@@ -56,9 +56,36 @@
  */
 struct proc *kproc;
 
-struct proc* p_table[256];
+struct proc_table *p_table;
+
+struct lock* pid_lock;
 
 volatile int pid_counter;
+
+/* NOTE: proc_table is a singleton struct and should only ever be init'd once */
+struct proc_table *
+proc_table_create(void) 
+{
+	struct proc_table * new_ptable;
+	new_ptable = kmalloc(sizeof(new_ptable));
+	if(new_ptable == NULL) {
+		return NULL;
+	}
+
+	new_ptable->pt_lock = lock_create("ptable_lock");
+	if(new_ptable->pt_lock == NULL) {
+		kfree(new_ptable);
+		return NULL;
+	}
+
+	return new_ptable;
+}
+
+void 
+proc_table_destroy(struct proc_table * table) 
+{	
+	lock_destroy(table->pt_lock);
+}
 
 /*
  * Assign next available PID
@@ -67,6 +94,7 @@ volatile int pid_counter;
 int
 next_pid(void)
 {
+	lock_acquire(p_table->pt_lock);
 	KASSERT(pid_counter < 256 && pid_counter >= PID_MIN);
 	int pid;
 
@@ -75,7 +103,7 @@ next_pid(void)
 	}
 
 	for(pid = pid_counter; pid < 256; pid++) {
-		if(p_table[pid] == NULL) {
+		if(p_table->table[pid] == NULL) {
 			break;
 		} else {
 			pid_counter++;
@@ -85,9 +113,10 @@ next_pid(void)
 		}
 	}
 
-	KASSERT(p_table[pid] == NULL);
+	KASSERT(p_table->table[pid] == NULL);
 
 	pid_counter++;
+	lock_release(p_table->pt_lock);
 	
 	return pid;
 }
@@ -118,6 +147,9 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
+
+	/* Handles locking */
+	proc->pid = next_pid();
 
 	return proc;
 }
@@ -259,6 +291,10 @@ proc_create_runprogram(const char *name)
 		newproc->p_cwd = curproc->p_cwd;
 	}
 	spinlock_release(&curproc->p_lock);
+
+	newproc->pid = next_pid();
+	KASSERT(newproc->pid == PID_MIN);
+	KASSERT(pid_counter == PID_MIN+1);
 
 	int result;
 	/* Add elements to file table */

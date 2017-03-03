@@ -61,11 +61,18 @@ void filehandle_destroy(struct filehandle *);
  *
  * Max size is set to be the limit of the max PID defined by PID_MAX in limits.h
  */
-extern struct proc* p_table[256];
-
+extern struct proc_table* p_table;
 extern volatile int pid_counter;
 
+struct proc_table {
+	struct proc* table[256];
+	struct lock* pt_lock;
+};
+
 int next_pid(void);
+struct proc_table * proc_table_create(void);
+void proc_table_destroy(struct proc_table *);
+
 
 /*
  * Process structure.
@@ -86,6 +93,7 @@ int next_pid(void);
  */
 struct proc {
 	char *p_name;			/* Name of this process */
+	int pid;
 	struct spinlock p_lock;		/* Lock for this structure */
 	unsigned p_numthreads;		/* Number of threads in this process */
 
