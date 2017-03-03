@@ -56,6 +56,41 @@
  */
 struct proc *kproc;
 
+struct proc* p_table[256];
+
+volatile int pid_counter;
+
+/*
+ * Assign next available PID
+ */
+
+int
+next_pid(void)
+{
+	KASSERT(pid_counter < 256 && pid_counter >= PID_MIN);
+	int pid;
+
+	if(pid_counter > 255) {
+		pid_counter = PID_MIN;
+	}
+
+	for(pid = pid_counter; pid < 256; pid++) {
+		if(p_table[pid] == NULL) {
+			break;
+		} else {
+			pid_counter++;
+		}
+		if(pid == 255) {
+			pid = PID_MIN;
+		}
+	}
+
+	KASSERT(p_table[pid] == NULL);
+
+	pid_counter++;
+	
+	return pid;
+}
 /*
  * Create a proc structure.
  */

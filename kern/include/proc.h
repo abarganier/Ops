@@ -37,6 +37,7 @@
  */
 
 #include <spinlock.h>
+#include <limits.h>
 
 struct addrspace;
 struct thread;
@@ -55,6 +56,16 @@ struct filehandle *filehandle_create(const char *, int);
 void filehandle_destroy(struct filehandle *);
 
 
+/*
+ * Process table structure.
+ *
+ * Max size is set to be the limit of the max PID defined by PID_MAX in limits.h
+ */
+extern struct proc* p_table[256];
+
+extern volatile int pid_counter;
+
+int next_pid(void);
 
 /*
  * Process structure.
