@@ -159,7 +159,17 @@ proc_create(const char *name)
 	/* Handles locking */
 	proc->pid = next_pid();
 
+	/* Change later */
+	proc->ppid = 0;
+
 	return proc;
+}
+
+/* Wrapper of proc_create */
+struct proc *
+proc_create_wrapper(const char *name)
+{
+	return proc_create(name);
 }
 
 /*

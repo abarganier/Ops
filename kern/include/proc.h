@@ -94,6 +94,8 @@ void proc_table_destroy(struct proc_table *);
 struct proc {
 	char *p_name;			/* Name of this process */
 	pid_t pid;
+	pid_t ppid;
+
 	struct spinlock p_lock;		/* Lock for this structure */
 	unsigned p_numthreads;		/* Number of threads in this process */
 
@@ -115,6 +117,9 @@ void proc_bootstrap(void);
 
 /* Create a fresh process for use by runprogram(). */
 struct proc *proc_create_runprogram(const char *name);
+
+/*Wrapper that calls static proc_create*/
+struct proc *proc_create_wrapper(const char *name);
 
 /* Destroy a process. */
 void proc_destroy(struct proc *proc);

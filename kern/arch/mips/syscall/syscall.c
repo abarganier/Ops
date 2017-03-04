@@ -36,6 +36,7 @@
 #include <current.h>
 #include <syscall.h>
 #include <file_syscalls.h>
+#include <proc_syscalls.h>
 
 /*
  * System call dispatcher.
@@ -85,6 +86,7 @@ syscall(struct trapframe *tf)
 	off_t err64 = 0;
 	bool is64 = false;
 	int err = 0;
+	struct trapframe *child_tf;
 
 
 	KASSERT(curthread != NULL);
@@ -147,6 +149,11 @@ syscall(struct trapframe *tf)
 
 		case SYS___getcwd:
 			err = sys___getcwd((char *)tf->tf_a0, (size_t) tf->tf_a1, &retval);
+			break;
+
+		case SYS_fork:
+			err = (int) sys_fork(tf, &child_tf, &retval);
+			//Do something below with child_tf
 			break;
 	    
 	    default:
