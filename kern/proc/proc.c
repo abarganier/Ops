@@ -494,3 +494,21 @@ filehandle_destroy(struct filehandle *filehandle)
 	kfree(filehandle);
 }
 
+/*	
+ * Copy the filetable pointers from a src proc to a dest proc.
+ * Error codes are simple, only flags if null pointers are passed.
+ */
+int
+filetable_copy(struct proc * src, struct proc * dest)
+{
+	if(src == NULL || dest == NULL) {
+		return 1;
+	}
+	int size = 64;
+	int i;
+	for(i = 0; i < size; i++) {
+		dest->filetable[i] = src->filetable[i]; 
+	}
+	return 0;
+}
+

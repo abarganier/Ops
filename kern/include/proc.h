@@ -131,5 +131,7 @@ struct addrspace *proc_getas(void);
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
 
+/* Copy the filetable pointers from a src process to a dest process. */
+int filetable_copy(struct proc *, struct proc *);
 
 #endif /* _PROC_H_ */

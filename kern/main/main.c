@@ -210,7 +210,7 @@ sys_reboot(int code)
 void
 kmain(char *arguments)
 {
-	pid_counter = 0;
+	pid_counter = 1;
 	boot();
 	menu(arguments);
 	/* Should not get here */
