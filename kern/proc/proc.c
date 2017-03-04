@@ -460,26 +460,21 @@ filehandle_create(const char *name, int fh_perm)
 {
 	struct filehandle *filehandle;
 
-	/*Allocate memory for filehandle struct */
 	filehandle = kmalloc(sizeof(*filehandle));
 	if (filehandle == NULL){
 		return NULL;
 	}
 
-	/*Assign name. Placeholder param for now*/
 	filehandle->fh_name = kstrdup(name);
 	if(filehandle->fh_name == NULL){
 		kfree(filehandle);
 		return NULL;
 	}
 
-	filehandle->fh_perm = fh_perm; /**/
-	
-	/* File handle offset and number of open processes initialized to 0*/
+	filehandle->fh_perm = fh_perm;
 	filehandle->fh_offset_value = 0;
 	filehandle->num_open_proc = 0;
 
-	/*Create lock for file handle*/
 	filehandle->fh_lock = lock_create("file_handle_lock");
 	if(filehandle->fh_lock == NULL){
 		kfree(filehandle->fh_name);
@@ -495,8 +490,6 @@ void
 filehandle_destroy(struct filehandle *filehandle)
 {
 	KASSERT(filehandle != NULL);
-	//Maybe insert KASSERT to see if call to filehandle_destroy is allowed	
-	
 	lock_destroy(filehandle->fh_lock);
 	kfree(filehandle->fh_name);
 	kfree(filehandle);
@@ -505,6 +498,7 @@ filehandle_destroy(struct filehandle *filehandle)
 /*	
  * Copy the filetable pointers from a src proc to a dest proc.
  * Error codes are simple, only flags if null pointers are passed.
+ * Mainly used as a supporting method for the fork() syscall.
  */
 int
 filetable_copy(struct proc * src, struct proc * dest)

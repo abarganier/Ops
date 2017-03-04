@@ -77,7 +77,6 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	}
 	fh->fh_offset_value = u.uio_offset;
 
-	/* Seems like uio_resid is always zero.. Set to buflen for now, ask in office hours. */
 	*retval = buflen - u.uio_resid;
 	return 0;
 }
@@ -111,6 +110,8 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 	u.uio_rw = UIO_READ;
 	u.uio_space = curproc->p_addrspace;
 
+	lock_release(fh->fh_lock);
+	
 	int result = VOP_READ(fh->fh_vnode, &u);
 	if(result) {
 		*retval = result;
@@ -119,10 +120,8 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 	}
 	fh->fh_offset_value = u.uio_offset;
 
-	/* Seems like uio_resid is always zero.. Set to buflen for now, ask in office hours. */
 	*retval = buflen - u.uio_resid;
 
-	lock_release(fh->fh_lock);
 	return 0;
 }
 
@@ -140,7 +139,7 @@ sys_open(const char *filename, int flags, int32_t * retval)
 		return result;
 	}
 
-	/* Still need to call vfs_open */
+	/* Still need to call vfs_open after filehandle_create() */
 	new_fh = filehandle_create(filename_cpy, flags);
 	if(new_fh == NULL) {
 		*retval = -1;

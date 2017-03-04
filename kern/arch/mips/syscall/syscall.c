@@ -151,13 +151,12 @@ syscall(struct trapframe *tf)
 
 		case SYS_fork:
 			err = (int) sys_fork(tf, &retval);
-			//Do something below with child_tf
 			break;
 	    
 	    case SYS__exit:
 	    	thread_exit();
 	    	break;
-	    	
+
 	    default:
 			kprintf("Unknown syscall %d\n", callno);
 			err = ENOSYS;
@@ -196,7 +195,6 @@ syscall(struct trapframe *tf)
 	 * Now, advance the program counter, to avoid restarting
 	 * the syscall over and over again.
 	 */
-
 	tf->tf_epc += 4;
 
 	/* Make sure the syscall code didn't forget to lower spl */

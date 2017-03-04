@@ -65,8 +65,8 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 {
 	int err;
 	struct trapframe *child_tf;
-	//Make new proc
 	struct proc *newproc;
+
 	newproc = proc_create_wrapper("child proc");
 	if(newproc == NULL){
 		*retval = 1;
@@ -89,8 +89,9 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		return err;
 	}
 
-	child_tf = trapframe_copy(parent_tf);
 	*retval = newproc->pid;
+
+	child_tf = trapframe_copy(parent_tf);
 	
 	err = thread_fork("child", newproc, (void*)enter_forked_process, child_tf, (unsigned long)newproc->pid);
 	if(err) {
@@ -99,6 +100,7 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		*retval = err;
 		return err;
 	}
+
 	return 0;
 }
 
