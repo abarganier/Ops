@@ -83,8 +83,21 @@ sys_fork(struct trapframe *parent_tf, struct trapframe **child_tf, int32_t *retv
 
 
 	//Call thread_fork
+	// err = thread_fork();
+	// if(err){
+	// 	//destroy stuff
+	// 	*retval = err;
+	// 	return err;
+	// }
 
 
+/*int
+	thread_fork(const char *name,
+			    struct proc *proc,
+	    		void (*entrypoint)(void *data1, unsigned long data2),
+	    		void *data1, 
+	    		unsigned long data2)
+*/
 	return 0;
 }
 

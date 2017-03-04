@@ -537,7 +537,7 @@ thread_fork(const char *name,
 	if (proc == NULL) {
 		proc = curthread->t_proc;
 	}
-	result = proc_addthread(proc, newthread);
+	result = proc_addthread(proc, newthread);	//returns 0 on success
 	if (result) {
 		/* thread_destroy will clean up the stack */
 		thread_destroy(newthread);
