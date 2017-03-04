@@ -68,18 +68,17 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	u.uio_rw = UIO_WRITE;
 	u.uio_space = curproc->p_addrspace;
 	
+	lock_release(fh->fh_lock);
+
 	int result = VOP_WRITE(fh->fh_vnode, &u);
 	if(result) {
 		*retval = result;
-		lock_release(fh->fh_lock);
 		return result;
 	}
 	fh->fh_offset_value = u.uio_offset;
 
 	/* Seems like uio_resid is always zero.. Set to buflen for now, ask in office hours. */
-	*retval = buflen;
-
-	lock_release(fh->fh_lock);
+	*retval = buflen - u.uio_resid;
 	return 0;
 }
 
@@ -121,7 +120,7 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 	fh->fh_offset_value = u.uio_offset;
 
 	/* Seems like uio_resid is always zero.. Set to buflen for now, ask in office hours. */
-	*retval = buflen;
+	*retval = buflen - u.uio_resid;
 
 	lock_release(fh->fh_lock);
 	return 0;

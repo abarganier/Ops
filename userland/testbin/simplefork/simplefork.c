@@ -27,93 +27,41 @@
  * SUCH DAMAGE.
  */
 
-#include <types.h>
-#include <kern/errno.h>
-#include <lib.h>
-#include <proc.h>
-#include <kern/seek.h>
-#include <current.h>
-#include <addrspace.h>
-#include <cpu.h>
-#include <vm.h>
-#include <vfs.h>
-#include <stat.h>
-#include <syscall.h>
-#include <proc_syscalls.h>
-#include <uio.h>
-#include <synch.h>
-#include <vnode.h>
-#include <copyinout.h>
-#include <mips/trapframe.h>
+/*
+ * fork.c
+ *
+ * 	Tests whether the fork syscall works in at least in simple use cases.
+ *
+ * This should run correctly when the fork syscall is implemented.
+ */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <err.h>
+#include <test161/test161.h>
 
-void
-enter_forked_process(struct trapframe *tf, unsigned long nothing)
-{	
-	(void)nothing;
-	struct trapframe trap = *tf;
-	trap.tf_v0 = 0;
-	trap.tf_a3 = 0;
-	trap.tf_epc += 4;
-
-	// Potential memory leak
-	mips_usermode(&trap);
-}
-
-pid_t 
-sys_fork(struct trapframe *parent_tf, int32_t *retval)
+int
+main(int argc, char **argv)
 {
-	int err;
-	struct trapframe *child_tf;
-	//Make new proc
-	struct proc *newproc;
-	newproc = proc_create_wrapper("child proc");
-	if(newproc == NULL){
-		*retval = 1;
-		return 1;
+
+	// Assume argument passing is *not* supported.
+	(void) argc;
+	(void) argv;
+
+	int ret;
+
+	printf("Calling fork()\n");
+
+	ret = fork();
+	if(ret == 0) {
+		printf("I am the child.\n");
+	} else if(ret > 0) {
+		printf("I am the parent. Child's PID is: %d\n", ret);
+	} else {
+		err(-1, "fork() failed, error returned: %d\n", ret);
 	}
-
-	newproc->ppid = curproc->pid;
-
-	err = filetable_copy(curproc, newproc);
-	if(err){
-		proc_destroy(newproc);
-		*retval = 1;
-		return 1;
-	}
-
-	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
-	if(err){
-		proc_destroy(newproc);
-		*retval = err;
-		return err;
-	}
-
-	child_tf = trapframe_copy(parent_tf);
-	*retval = newproc->pid;
 	
-	err = thread_fork("child", newproc, (void*)enter_forked_process, child_tf, (unsigned long)newproc->pid);
-	if(err) {
-		kfree(child_tf);
-		proc_destroy(newproc);
-		*retval = err;
-		return err;
-	}
 	return 0;
-}
-
-
-struct trapframe *
-trapframe_copy(struct trapframe *parent_tf)
-{
-	if(parent_tf == NULL){
-		return NULL;
-	}
-
-	struct trapframe *child_tf;
-	child_tf = kmalloc(sizeof(child_tf));
-
-	memcpy((void*)child_tf, (void*)parent_tf, sizeof(*parent_tf));
-
-	return child_tf;
 }

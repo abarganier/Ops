@@ -312,8 +312,6 @@ proc_create_runprogram(const char *name)
 	spinlock_release(&curproc->p_lock);
 
 	newproc->pid = next_pid();
-	KASSERT(newproc->pid == PID_MIN);
-	KASSERT(pid_counter == PID_MIN+1);
 
 	int result;
 	/* Add elements to file table */
