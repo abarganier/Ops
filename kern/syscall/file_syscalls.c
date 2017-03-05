@@ -111,11 +111,10 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 	u.uio_space = curproc->p_addrspace;
 
 	lock_release(fh->fh_lock);
-	
+
 	int result = VOP_READ(fh->fh_vnode, &u);
 	if(result) {
 		*retval = result;
-		lock_release(fh->fh_lock);
 		return result;
 	}
 	fh->fh_offset_value = u.uio_offset;
