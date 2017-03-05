@@ -110,11 +110,67 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 pid_t
 sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 {
-	(void)pid;
-	(void)status_ptr;
-	(void)options;
-	(void)retval;
+	// Options not supported
+	if(options) {
+		*retval = EINVAL;
+		return EINVAL;
+	}
+
+	if(!ptr_is_aligned((void*)status_ptr, 4)) {
+		*retval = EFAULT;
+		return EFAULT;
+	}
+
+	lock_acquire(p_table->pt_lock);
+
+	if(pid < PID_MIN || p_table->table[pid] == NULL) {
+		lock_release(p_table->pt_lock);
+		*retval = ESRCH;
+		return ESRCH;
+	}
+
+	// What if it's not the direct child but a grandchild?
+	if(p_table->table[pid]->ppid != curproc->pid) {
+		lock_release(p_table->pt_lock);
+		*retval = ECHILD;
+		return ECHILD;
+	}
+
+	struct proc *childproc = p_table->table[pid];
+
+	KASSERT(childproc->pid == pid);
+	
+	lock_release(p_table->pt_lock);
+
+	if(!childproc->exited) {
+		P(&childproc->exit_sem);
+	}
+
+	KASSERT(childproc->exited);
+
+	int ch_status = childproc->exit_status;
+
+	if(status_ptr != NULL) {
+		int res = copyout((void *)&ch_status, status_ptr, 4);
+		if(res) {
+			*retval = res;
+			return res;
+		}
+	}
+
+	lock_acquire(p_table->pt_lock);
+	proc_destroy(childproc);
+	p_table->table[pid] = NULL;
+	lock_release(p_table->pt_lock);
+
+	*retval = pid;
 	return 0;
+}
+
+bool
+ptr_is_aligned(void *ptr, int size)
+{
+	return ((unsigned long)ptr & (size-1)) == 0;
 }
 
 void

@@ -101,6 +101,9 @@ struct proc {
 	struct spinlock p_lock;		/* Lock for this structure */
 	unsigned p_numthreads;		/* Number of threads in this process */
 
+	bool exited;
+	int exit_status;
+
 	/* VM */
 	struct addrspace *p_addrspace;	/* virtual address space */
 

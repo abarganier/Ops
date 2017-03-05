@@ -164,6 +164,9 @@ proc_create(const char *name)
 	   Valid value set during sys_fork() */
 	proc->ppid = -1;
 
+	proc->exited = false;
+	proc->exit_status = 0;
+
 	return proc;
 }
 
