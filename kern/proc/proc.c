@@ -58,8 +58,6 @@ struct proc *kproc;
 
 struct proc_table *p_table;
 
-struct lock* pid_lock;
-
 volatile pid_t pid_counter;
 
 bool is_kproc = true;
@@ -150,6 +148,8 @@ proc_create(const char *name)
 	proc->p_numthreads = 0;
 	spinlock_init(&proc->p_lock);
 
+	proc->exit_sem = *sem_create("process_exit_sem", 0);
+
 	/* VM fields */
 	proc->p_addrspace = NULL;
 
@@ -159,8 +159,10 @@ proc_create(const char *name)
 	/* Handles locking */
 	proc->pid = next_pid();
 
-	/* Change later */
-	proc->ppid = 0;
+	/* First process has no parent, shouldn't 
+	   be valid index into process table. 
+	   Valid value set during sys_fork() */
+	proc->ppid = -1;
 
 	return proc;
 }

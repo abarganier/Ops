@@ -46,6 +46,9 @@
 #include <copyinout.h>
 #include <mips/trapframe.h>
 
+#define ALIGNMENT 4u;
+
+struct proc_table *p_table;
 
 void
 enter_forked_process(struct trapframe *tf, unsigned long nothing)
@@ -101,6 +104,15 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		return err;
 	}
 
+	return 0;
+}
+
+pid_t
+sys_waitpid(pid_t pid, int *status, int options)
+{
+	(void)pid;
+	(void)status;
+	(void)options;
 	return 0;
 }
 
