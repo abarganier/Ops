@@ -108,14 +108,20 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 }
 
 pid_t
-sys_waitpid(pid_t pid, int *status, int options)
+sys_waitpid(pid_t pid, int *status, int options, int32_t *retval)
 {
 	(void)pid;
 	(void)status;
 	(void)options;
+	(void)retval;
 	return 0;
 }
 
+void
+sys_exit(int exitcode) 
+{
+	(void)exitcode;
+}
 
 struct trapframe *
 trapframe_copy(struct trapframe *parent_tf)
