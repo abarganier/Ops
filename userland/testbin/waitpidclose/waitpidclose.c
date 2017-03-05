@@ -66,8 +66,8 @@ main(int argc, char **argv)
 	pid = fork();
 	if(pid == 0) {
 
-		printf("I am the child.\n");
-		printf("Child now performing some operations to kill time.\n");
+		// printf("I am the child.\n");
+		// printf("Child now performing some operations to kill time.\n");
 
 		for(i = 0; i < 100001; i++) {
 			if(i % 2 == 0) {
@@ -77,8 +77,8 @@ main(int argc, char **argv)
 			}
 		}
 
-		printf("Child operations over.\n");
-		printf("Child now calling exit().\n");
+		// printf("Child operations over.\n");
+		// printf("Child now calling exit().\n");
 		_exit(0); // Signal success;
 		
 	} else if(pid > 0) {
@@ -87,6 +87,7 @@ main(int argc, char **argv)
 		printf("Parent is calling waitpid(%d)\n", pid);
 		
 		res = waitpid(pid, &proc_status, 0);
+		printf("!!!!!!!%d", res);
 		if(res < 0) {
 			err(-1, "waitpid() failed, error returned: %d\n", res);	
 		} else {

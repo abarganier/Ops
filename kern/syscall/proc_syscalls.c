@@ -44,6 +44,7 @@
 #include <synch.h>
 #include <vnode.h>
 #include <copyinout.h>
+#include <kern/wait.h>
 #include <mips/trapframe.h>
 
 #define ALIGNMENT 4u;
@@ -110,18 +111,18 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 pid_t
 sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 {
+	int res;
+	int ch_status;
+
 	// Options not supported
 	if(options) {
 		*retval = EINVAL;
 		return EINVAL;
 	}
 
-	if(!ptr_is_aligned((void*)status_ptr, 4)) {
-		*retval = EFAULT;
-		return EFAULT;
-	}
-
 	lock_acquire(p_table->pt_lock);
+
+	KASSERT(p_table->table[pid] != NULL);
 
 	if(pid < PID_MIN || p_table->table[pid] == NULL) {
 		lock_release(p_table->pt_lock);
@@ -142,16 +143,27 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 	
 	lock_release(p_table->pt_lock);
 
+	/* Ensure the status ptr is valid (if provided) before continuing */
+	/* We won't do anything with the value, this just is a memcheck */
+	if(status_ptr != NULL) {
+		res = copyin(status_ptr, (void*)&res, 4);
+		if(res) {
+			*retval = res;
+			return res;
+		}
+		ch_status = 0;
+	}
+
 	if(!childproc->exited) {
 		P(&childproc->exit_sem);
 	}
 
 	KASSERT(childproc->exited);
 
-	int ch_status = childproc->exit_status;
+	ch_status = childproc->exit_status;
 
 	if(status_ptr != NULL) {
-		int res = copyout((void *)&ch_status, status_ptr, 4);
+		res = copyout((void *)&ch_status, status_ptr, 4);
 		if(res) {
 			*retval = res;
 			return res;
@@ -159,7 +171,7 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 	}
 
 	lock_acquire(p_table->pt_lock);
-	proc_destroy(childproc);
+	// proc_destroy(childproc); // leak memory for now, fix in asst3
 	p_table->table[pid] = NULL;
 	lock_release(p_table->pt_lock);
 
@@ -167,16 +179,33 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 	return 0;
 }
 
-bool
-ptr_is_aligned(void *ptr, int size)
-{
-	return ((unsigned long)ptr & (size-1)) == 0;
-}
-
 void
 sys_exit(int exitcode) 
 {
-	(void)exitcode;
+	int pid = curproc->pid;
+	int ppid = curproc->ppid;
+
+	if(ppid >= 0 && p_table->table[ppid] == NULL) {
+		return;
+	}
+
+	if(p_table->table[ppid]->exited || ppid < 0) {
+		lock_acquire(p_table->pt_lock);
+		p_table->table[pid] = NULL;
+		// proc_destroy(p_table->table[pid]); // leak memory for now, fix in asst3 
+		lock_release(p_table->pt_lock);
+		return;
+	}
+	curproc->exited = true;
+	curproc->exit_status = _MKWAIT_EXIT(exitcode);
+	V(&curproc->exit_sem);
+}
+
+void
+sys_getpid(int32_t *retval)
+{
+	KASSERT(curproc->pid >= PID_MIN);
+	*retval = curproc->pid;
 }
 
 struct trapframe *

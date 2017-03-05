@@ -9,6 +9,7 @@ pid_t sys_fork(struct trapframe *, int32_t *);
 pid_t sys_waitpid(pid_t, userptr_t, int, int32_t *);
 void sys_exit(int);
 struct trapframe *trapframe_copy(struct trapframe *);
+void sys_getpid(int32_t *);
 
 /* Supporting method that ensures a pointer's address 
    is aligned by a given byte size */

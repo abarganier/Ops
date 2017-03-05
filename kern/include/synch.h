@@ -75,8 +75,8 @@ void V(struct semaphore *);
  * (should be) made internally.
  */
 struct lock {
-        char *lk_name;
-        HANGMAN_LOCKABLE(lk_hangman);   /* Deadlock detector hook. */
+    char *lk_name;
+    HANGMAN_LOCKABLE(lk_hangman);   /* Deadlock detector hook. */
 	struct wchan *lk_wchan;
 	struct spinlock lk_spinlock;
 	struct thread *lk_thread;
@@ -118,7 +118,7 @@ bool lock_do_i_hold(struct lock *);
 struct cv {
         // (don't forget to mark things volatile as needed)
 	char *cv_name;
-        struct wchan *cv_wchan;
+    struct wchan *cv_wchan;
 	struct spinlock cv_spinlock;
 };
 

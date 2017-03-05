@@ -121,7 +121,6 @@ next_pid(void)
 	pid_counter++;
 	if(!is_kproc) {
 		lock_release(p_table->pt_lock);
-		is_kproc = false;
 	}
 	
 	return pid;
@@ -158,6 +157,18 @@ proc_create(const char *name)
 
 	/* Handles locking */
 	proc->pid = next_pid();
+
+	if(!is_kproc) {
+		lock_acquire(p_table->pt_lock);
+	}
+
+	KASSERT(p_table->table[proc->pid] == NULL);
+	p_table->table[proc->pid] = proc;
+	
+	if(!is_kproc) {
+		lock_release(p_table->pt_lock);
+		is_kproc = false;
+	}
 
 	/* First process has no parent, shouldn't 
 	   be valid index into process table. 
@@ -317,6 +328,18 @@ proc_create_runprogram(const char *name)
 	spinlock_release(&curproc->p_lock);
 
 	newproc->pid = next_pid();
+
+	// if(!is_kproc) {
+	// 	lock_acquire(p_table->pt_lock);
+	// }
+
+	KASSERT(p_table->table[newproc->pid] == NULL);
+	p_table->table[newproc->pid] = newproc;
+	
+	// if(!is_kproc) {
+	// 	lock_release(p_table->pt_lock);
+	// 	is_kproc = false;
+	// }
 
 	int result;
 	/* Add elements to file table */
