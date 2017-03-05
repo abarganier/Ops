@@ -28,11 +28,15 @@
  */
 
 /*
- * simplefork.c
+ * waitpidclose.c
  *
- * 	Tests whether the fork syscall works in at least in simple use cases.
+ * 	Tests whether the waitpid and close syscalls work properly together.
+ *	Print statements will be made that should indicate the expected order
+ *	of events. This is to make sure the process calling waitpid(pid) is
+ *	properly blocked by the child process.
  *
- * This should run correctly when the fork syscall is implemented.
+ * This should run correctly when the fork, waitpid, and exit syscalls 
+ * are implemented.
  */
 
 #include <stdlib.h>
@@ -50,19 +54,44 @@ main(int argc, char **argv)
 	(void) argc;
 	(void) argv;
 
-	int ret;
+	int pid;
+	int proc_status;
+	int res;
+	int i;
+	int dummy = 0;
+
 
 	printf("Calling fork()\n");
 
-	ret = fork();
-	if(ret == 0) {
+	pid = fork();
+	if(pid == 0) {
 		printf("I am the child.\n");
-		write(1, "Writing from the child\n", 25);
-	} else if(ret > 0) {
-		printf("I am the parent. Child's PID is: %d\n", ret);
-		write(1, "Writing from the parent\n", 25);
+		printf("Child now performing some operations to kill time.\n");
+		for(i = 0; i < 100001; i++) {
+			if(i % 2 == 0) {
+				dummy += i;
+			} else {
+				dummy -= i;
+			}
+		}
+		printf("Child operations over.\n");
+		printf("Child now calling exit().\n");
+		_exit(0); // Signal success;
+
+		
+	} else if(pid > 0) {
+		printf("I am the parent. Child's PID is: %d\n", pid);
+		printf("Parent is calling waitpid(%d)\n", pid);
+		res = waitpid(pid, &proc_status, 0);
+		if(res < 0) {
+			err(-1, "waitpid() failed, error returned: %d\n", res);	
+		} else {
+			printf("waitpid returned, return value: %d\n", res);
+			printf("You should not see this unless the child has exited!\n");
+			printf("Status value returned is %d, expected %d\n", proc_status, 0);
+		}
 	} else {
-		err(-1, "fork() failed, error returned: %d\n", ret);
+		err(-1, "fork() failed, error returned: %d\n", pid);
 	}
 	
 	return 0;
