@@ -70,14 +70,15 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 
 	int result = VOP_WRITE(fh->fh_vnode, &u);
 	if(result) {
-		lock_release(fh->fh_lock);
 		*retval = result;
+		lock_release(fh->fh_lock);
 		return result;
 	}
 	fh->fh_offset_value = u.uio_offset;
-	lock_release(fh->fh_lock);
 
 	*retval = buflen - u.uio_resid;
+	lock_release(fh->fh_lock);
+
 	return 0;
 }
 

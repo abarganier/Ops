@@ -71,14 +71,17 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	struct trapframe *child_tf;
 	struct proc *newproc;
 
+	//Create new process (child proc)
 	newproc = proc_create_wrapper("child proc");
 	if(newproc == NULL){
 		*retval = 1;
 		return 1;
 	}
 
+	//Assign child proc ppid
 	newproc->ppid = curproc->pid;
 
+	//Copy filetable to child proc
 	err = filetable_copy(curproc, newproc);
 	if(err){
 		proc_destroy(newproc);
@@ -86,6 +89,7 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		return 1;
 	}
 
+	//Copy address space to child proc
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
 		proc_destroy(newproc);
@@ -93,10 +97,14 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		return err;
 	}
 
+	//Set return to child proc's pid
 	*retval = newproc->pid;
 
+	//Copy trapframe to child proc
 	child_tf = trapframe_copy(parent_tf);
 	
+
+	//Copy proc's thread to child proc
 	err = thread_fork("child", newproc, (void*)enter_forked_process, child_tf, (unsigned long)newproc->pid);
 	if(err) {
 		kfree(child_tf);

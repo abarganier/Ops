@@ -56,10 +56,10 @@ main(int argc, char **argv)
 
 	ret = fork();
 	if(ret == 0) {
-		printf("I am the child.\n");
+	//	printf("I am the child.\n");
 		write(1, "Writing from the child\n", 25);
 	} else if(ret > 0) {
-		printf("I am the parent. Child's PID is: %d\n", ret);
+	//	printf("I am the parent. Child's PID is: %d\n", ret);
 		write(1, "Writing from the parent\n", 25);
 	} else {
 		err(-1, "fork() failed, error returned: %d\n", ret);
