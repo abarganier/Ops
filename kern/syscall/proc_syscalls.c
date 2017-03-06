@@ -92,7 +92,7 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	//Copy address space to child proc
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
-		// proc_destroy(newproc);
+		// proc_destroy(newproc); 
 		*retval = err;
 		return err;
 	}
