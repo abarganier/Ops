@@ -67,15 +67,15 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	u.uio_segflg = UIO_USERSPACE;
 	u.uio_rw = UIO_WRITE;
 	u.uio_space = curproc->p_addrspace;
-	
-	lock_release(fh->fh_lock);
 
 	int result = VOP_WRITE(fh->fh_vnode, &u);
 	if(result) {
+		lock_release(fh->fh_lock);
 		*retval = result;
 		return result;
 	}
 	fh->fh_offset_value = u.uio_offset;
+	lock_release(fh->fh_lock);
 
 	*retval = buflen - u.uio_resid;
 	return 0;
@@ -110,14 +110,14 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 	u.uio_rw = UIO_READ;
 	u.uio_space = curproc->p_addrspace;
 
-	lock_release(fh->fh_lock);
-
 	int result = VOP_READ(fh->fh_vnode, &u);
 	if(result) {
+		lock_release(fh->fh_lock);
 		*retval = result;
 		return result;
 	}
 	fh->fh_offset_value = u.uio_offset;
+	lock_release(fh->fh_lock);
 
 	*retval = buflen - u.uio_resid;
 
