@@ -190,6 +190,7 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 void
 sys_exit(int exitcode) 
 {
+
 	int pid = curproc->pid;
 	int ppid = curproc->ppid;
 
@@ -197,7 +198,7 @@ sys_exit(int exitcode)
 		return;
 	}
 
-	if(p_table->table[ppid]->exited || ppid < 0) {
+	if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
 		lock_acquire(p_table->pt_lock);
 		p_table->table[pid] = NULL;
 		// proc_destroy(p_table->table[pid]); // leak memory for now, fix in asst3 
