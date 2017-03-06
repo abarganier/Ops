@@ -84,15 +84,15 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	//Copy filetable to child proc
 	err = filetable_copy(curproc, newproc);
 	if(err){
-		proc_destroy(newproc);
-		*retval = 1;
-		return 1;
+		// proc_destroy(newproc);
+		*retval = -1;
+		return err;
 	}
 
 	//Copy address space to child proc
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
-		proc_destroy(newproc);
+		// proc_destroy(newproc);
 		*retval = err;
 		return err;
 	}
@@ -225,9 +225,9 @@ trapframe_copy(struct trapframe *parent_tf)
 	}
 
 	struct trapframe *child_tf;
-	child_tf = kmalloc(sizeof(child_tf));
+	child_tf = kmalloc(sizeof(*child_tf));
 
-	memcpy((void*)child_tf, (void*)parent_tf, sizeof(*parent_tf));
+	memcpy(child_tf, parent_tf, sizeof(*parent_tf));
 
 	return child_tf;
 }

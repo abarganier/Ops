@@ -94,9 +94,9 @@ proc_table_destroy(struct proc_table * table)
 pid_t
 next_pid(void)
 {
-	if(!is_kproc) {
-		lock_acquire(p_table->pt_lock);
-	}
+	// if(!is_kproc) {
+	// 	lock_acquire(p_table->pt_lock);
+	// }
 
 	KASSERT(pid_counter < 256 && pid_counter >= 0);
 	pid_t pid;
@@ -119,9 +119,9 @@ next_pid(void)
 	KASSERT(p_table->table[pid] == NULL);
 
 	pid_counter++;
-	if(!is_kproc) {
-		lock_release(p_table->pt_lock);
-	}
+	// if(!is_kproc) {
+	// 	lock_release(p_table->pt_lock);
+	// }
 	
 	return pid;
 }
@@ -158,17 +158,17 @@ proc_create(const char *name)
 	/* Handles locking */
 	proc->pid = next_pid();
 
-	if(!is_kproc) {
-		lock_acquire(p_table->pt_lock);
-	}
+	// if(!is_kproc) {
+	// 	lock_acquire(p_table->pt_lock);
+	// }
 
 	KASSERT(p_table->table[proc->pid] == NULL);
 	p_table->table[proc->pid] = proc;
 	
-	if(!is_kproc) {
-		lock_release(p_table->pt_lock);
-		is_kproc = false;
-	}
+	// if(!is_kproc) {
+	// 	lock_release(p_table->pt_lock);
+	// 	is_kproc = false;
+	// }
 
 	/* First process has no parent, shouldn't 
 	   be valid index into process table. 
