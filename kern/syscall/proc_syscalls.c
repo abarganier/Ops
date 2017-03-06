@@ -207,6 +207,7 @@ sys_exit(int exitcode)
 	curproc->exited = true;
 	curproc->exit_status = _MKWAIT_EXIT(exitcode);
 	V(&curproc->exit_sem);
+	thread_exit();
 }
 
 void

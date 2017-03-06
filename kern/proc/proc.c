@@ -537,7 +537,12 @@ filetable_copy(struct proc * src, struct proc * dest)
 	int size = 64;
 	int i;
 	for(i = 0; i < size; i++) {
-		dest->filetable[i] = src->filetable[i]; 
+		if(src->filetable[i] != NULL) { 
+			lock_acquire(src->filetable[i]->fh_lock);
+			dest->filetable[i] = src->filetable[i];
+			dest->filetable[i]->num_open_proc++;
+			lock_release(src->filetable[i]->fh_lock);
+		}
 	}
 	return 0;
 }

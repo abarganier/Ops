@@ -78,7 +78,7 @@ main(int argc, char **argv)
 		}
 
 		// printf("Child operations over.\n");
-		// printf("Child now calling exit().\n");
+		printf("Child now calling exit().\n");
 		_exit(0); // Signal success;
 		
 	} else if(pid > 0) {

@@ -119,7 +119,6 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 	}
 	fh->fh_offset_value = u.uio_offset;
 	lock_release(fh->fh_lock);
-
 	*retval = buflen - u.uio_resid;
 
 	return 0;
