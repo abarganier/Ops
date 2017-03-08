@@ -46,6 +46,7 @@
 #include <copyinout.h>
 #include <kern/wait.h>
 #include <mips/trapframe.h>
+#include <kern/fcntl.h> //MACROS like O_RDONLY
 
 #define ALIGNMENT 4u;
 
@@ -71,17 +72,14 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	struct trapframe *child_tf;
 	struct proc *newproc;
 
-	//Create new process (child proc)
 	newproc = proc_create_wrapper("child proc");
 	if(newproc == NULL){
 		*retval = 1;
 		return 1;
 	}
 
-	//Assign child proc ppid
 	newproc->ppid = curproc->pid;
 
-	//Copy filetable to child proc
 	err = filetable_copy(curproc, newproc);
 	if(err){
 		// proc_destroy(newproc);
@@ -89,7 +87,6 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		return err;
 	}
 
-	//Copy address space to child proc
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
 		// proc_destroy(newproc); 
@@ -97,14 +94,12 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		return err;
 	}
 
-	//Set return to child proc's pid
 	*retval = newproc->pid;
 
-	//Copy trapframe to child proc
+
 	child_tf = trapframe_copy(parent_tf);
 	
 
-	//Copy proc's thread to child proc
 	err = thread_fork("child", newproc, (void*)enter_forked_process, child_tf, (unsigned long)newproc->pid);
 	if(err) {
 		kfree(child_tf);
@@ -138,7 +133,6 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 		return ESRCH;
 	}
 
-	// What if it's not the direct child but a grandchild?
 	if(p_table->table[pid]->ppid != curproc->pid) {
 		lock_release(p_table->pt_lock);
 		*retval = ECHILD;
@@ -159,7 +153,6 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 			*retval = res;
 			return res;
 		}
-		ch_status = 0;
 	}
 
 	if(!childproc->exited) {
@@ -194,7 +187,7 @@ sys_exit(int exitcode)
 	int pid = curproc->pid;
 	int ppid = curproc->ppid;
 
-	if(ppid >= 0 && p_table->table[ppid] == NULL) {
+	if(ppid >= 0 && ppid < 256 && p_table->table[ppid] == NULL) {
 		return;
 	}
 
@@ -231,4 +224,74 @@ trapframe_copy(struct trapframe *parent_tf)
 	memcpy(child_tf, parent_tf, sizeof(*parent_tf));
 
 	return child_tf;
+}
+
+int
+sys_execv(const char *program, char **args, int32_t *retval)
+{
+	//Stops unused arg compiler warning
+//	(void) program;
+	(void) args;
+
+
+	//Copy in arguments from address space to kernel space
+	int result;
+
+
+	//Operations to load the executable into mem
+	struct addrspace *as;
+	struct vnode *v;
+	vaddr_t entrypoint, stackptr;
+
+
+	/* Open the file. */
+	result = vfs_open((char *)program, O_RDONLY, 0, &v); //remove (char *) once copyin is correctly implemented. Open kernel space prog
+	if (result) {
+		*retval = result;
+		return result;
+	}
+
+	/* We should be a new process. */
+	KASSERT(proc_getas() == NULL);
+
+	/* Create a new address space. */
+	as = as_create();
+	if (as == NULL) {
+		vfs_close(v);
+		*retval = ENOMEM;
+		return ENOMEM;
+	}
+
+	/* Switch to it and activate it. */
+	proc_setas(as);
+	as_activate();
+
+	/* Load the executable. */
+	result = load_elf(v, &entrypoint);
+	if (result) {
+		/* p_addrspace will go away when curproc is destroyed */
+		vfs_close(v);
+		*retval = result;
+		return result;
+	}
+
+	/* Done with the file now. */
+	vfs_close(v);
+
+	/* Define the user stack in the address space */
+	result = as_define_stack(as, &stackptr);
+	if (result) {
+		/* p_addrspace will go away when curproc is destroyed */
+		*retval = result;
+		return result;
+	}
+
+
+	//Copy arguments from kernel space to userpsace
+
+	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
+
+	//SHOULD NOT REACH HERE ON SUCCESS
+	*retval = EINVAL;
+	return -1;
 }
