@@ -230,15 +230,10 @@ trapframe_copy(struct trapframe *parent_tf)
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
-	//Stops unused arg compiler warning
-//	(void) program;
-	(void) args;
-
-
 	//Copy in arguments from address space to kernel space
 	int result;
 	int num_bytes = 0;			//Note: Can't do sizeof() on program or args because they come from userspace
-	char *kprogram = NULL;		//Kernel destination for program arg
+	char *kprogram = NULL;		//Kernel destination address for program arg
 	
 	result = copyin((const_userptr_t) program, kprogram, 4); //len 4 because pointer?
 	if(result){
@@ -249,11 +244,11 @@ sys_execv(const char *program, char **args, int32_t *retval)
 
 
 
-	char *kargs[ARG_MAX];		//Kernel destination for args argument
+	char *kargs[ARG_MAX];		//Kernel destination address for args argument
 	int index = 0;
 
 
-	//Copy in 0 index of args
+	//Copy in 0 index of args (should be program pointer)
 	//Check if null
 		//If yes, done. Do not return error. NULL could be a user-desired argument
 		//If no, start while loop which checks to see that the last arg copied in is not null
@@ -266,7 +261,7 @@ sys_execv(const char *program, char **args, int32_t *retval)
 
 
 	//Need to loop here until a null pointer is copied in
-	while(args[index] != NULL){	//Note: Can't do this. Can't access userspace
+	while(kargs[index] != NULL){
 		
 		//incremement index
 		index++;
@@ -286,6 +281,10 @@ sys_execv(const char *program, char **args, int32_t *retval)
 			return E2BIG;
 		}
 	}
+
+	/*By here we have a buffer kargs that holds all of the arg pointers. 
+	How do we copy in the areas of user memory that the pointers originally pointed to? */
+
 
 
 	//Operations to load the executable into mem
@@ -340,6 +339,8 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	//Copy arguments from kernel space to userpsace
 
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
+
+
 
 	//SHOULD NOT REACH HERE ON SUCCESS
 	*retval = EINVAL;
