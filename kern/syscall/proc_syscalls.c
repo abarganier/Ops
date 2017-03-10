@@ -408,8 +408,10 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		return 1;
 	}
 
+	vaddr_t array_start = stackptr;
+
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
-	enter_new_process
+	enter_new_process(index, (userptr_t)array_start, NULL, stackptr, entrypoint);
 
 	//SHOULD NOT REACH HERE ON SUCCESS
 	*retval = EINVAL;
