@@ -228,6 +228,62 @@ trapframe_copy(struct trapframe *parent_tf)
 }
 
 int
+load_arg_pointers(vaddr_t * addresses, vaddr_t * stkptr, int arrsize)
+{
+	*stkptr -= arrsize*4;
+	int result = copyout((const void *)addresses, (void*)stkptr, arrsize*4);
+	if(result) {
+		return result;
+	}
+	return 0;
+}
+
+int
+build_user_stack(char strings[][ARG_MAX], size_t * lengths, int arrsize, vaddr_t * stkptr)
+{
+	vaddr_t addresses[arrsize];
+	int i, result;
+	char nothing = '\0';
+
+	for(i = 0; i < arrsize; i++) {
+
+		int nulls = lengths[i] % 4;
+		size_t offset = lengths[i] + nulls;
+		*stkptr -= offset;
+		addresses[i] = *stkptr;
+		
+		size_t ch;
+		for(ch = 0; ch < offset; ch++) {
+
+			if(ch < lengths[i]) {
+
+				result = copyout((const void *)&strings[i][ch], (void *)stkptr, 1);
+				if(result) {
+					return result;
+				}
+				*stkptr += 1;
+
+			} else {
+
+				result = copyout((const void *)&nothing, (void *)stkptr, 1);
+				if(result) {
+					return result;
+				}
+				*stkptr += 1;
+			}
+		}
+
+		*stkptr = addresses[i]; // does stkptr point to the next available spot, or the top used address?
+	}
+
+	result = load_arg_pointers(addresses, stkptr, arrsize);
+	if(result) {
+		return result;
+	}
+	return 0;
+}
+
+int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
 	int result;
@@ -343,49 +399,19 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		*retval = result;
 		return result;
 	}
-
+	kprintf("Stkptr after as_define_stack: %x", stackptr);
 
 	//Copy arguments from kernel space to userpsace
+	result = build_user_stack(argbuf, lengths, index, &stackptr);
+	if(result) {
+		*retval = 1;
+		return 1;
+	}
 
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
-
-
+	enter_new_process
 
 	//SHOULD NOT REACH HERE ON SUCCESS
 	*retval = EINVAL;
 	return -1;
-}
-
-void
-build_stack_str(char * vals[], size_t * len)
-{	
-	(void)vals;
-	(void)len;
-
-	
-
-
-}
-
-int
-get_total_size(size_t * lengths, int arrsize)
-{
-	int i;
-	size_t total = 0;
-	for(i = 0; i < arrsize; i++) {
-		//total += (*lengths[i]);
-		total += lengths[i];
-		//total += (*lengths[i]) % 4;
-		total += (lengths[i] % 4);
-	}
-	return total;
-}
-
-int
-stack_load(char * str, size_t len, userptr_t *stkptr) 
-{
-	(void)str;
-	(void)len;
-	(void)stkptr;
-	return 0;
 }
