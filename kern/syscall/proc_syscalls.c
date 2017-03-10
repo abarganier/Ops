@@ -355,3 +355,31 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	*retval = EINVAL;
 	return -1;
 }
+
+void
+build_stack_str(char * vals[], size_t * len)
+{	
+	(void)vals;
+	(void)len;
+}
+
+int
+get_total_size(size_t * lengths, int arrsize)
+{
+	int i;
+	size_t total = 0;
+	for(i = 0; i < arrsize; i++) {
+		total += *lengths[i];
+		total += (*lengths[i]) % 4;
+	}
+	return total;
+}
+
+int
+stack_load(char * str, size_t len, userptr_t *stkptr) 
+{
+	(void)str;
+	(void)len;
+	(void)stkptr;
+	return 0;
+}
