@@ -230,62 +230,71 @@ trapframe_copy(struct trapframe *parent_tf)
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
-	//Copy in arguments from address space to kernel space
 	int result;
-	int num_bytes = 0;			//Note: Can't do sizeof() on program or args because they come from userspace
-	char *kprogram = NULL;		//Kernel destination address for program arg
+	int num_bytes = 0;
+	char kprogram[PATH_MAX];
+	size_t prog_len = 0;
 	
-	result = copyin((const_userptr_t) program, kprogram, 4); //len 4 because pointer?
-	if(result){
-		*retval = result;
-		return result;		 	//May have to return -1, but I don't think it matters
-	}
-	num_bytes += 4;		 
-
-
-
-	char *kargs[ARG_MAX];		//Kernel destination address for args argument
-	int index = 0;
-
-
-	//Copy in 0 index of args (should be program pointer)
-	//Check if null
-		//If yes, done. Do not return error. NULL could be a user-desired argument
-		//If no, start while loop which checks to see that the last arg copied in is not null
-	result = copyin((const_userptr_t) args[index], kargs[index], 4);
+	result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &prog_len); 
 	if(result){
 		*retval = result;
 		return result;
 	}
-	num_bytes =+ 4;
+	num_bytes += prog_len + 4;
 
+	userptr_t kargs[ARG_MAX];
+	int index = 0;
+	userptr_t argv = 0;
+
+	//Copy in 0 index of args (should be program pointer)
+	//Check if null
+	//If no, start while loop which checks to see that the last arg copied in is not null
+	result = copyin((const_userptr_t) args, argv, 4);
+	if(result){
+		*retval = result;
+		return result;
+	}
+
+	result = copyin((const_userptr_t) argv, kargs[index], 4);
+	if(result){
+		*retval = result;
+		return result;
+	}
 
 	//Need to loop here until a null pointer is copied in
 	while(kargs[index] != NULL){
 		
-		//incremement index
 		index++;
-
+		argv += 4;
+		num_bytes =+ 4;
+		
 		//copy in pointer
-		result = copyin((const_userptr_t) args[index], kargs[index], 4);
-		//error check copyin
+		result = copyin((const_userptr_t) argv, kargs[index], 4);
 		if(result){
 			*retval = result;
 			return result;
 		}
-		num_bytes =+ 4;
 
 		//check to see that total number of copied bytes does not exceed ARG_MAX
-		if(num_bytes > ARG_MAX){
-			*retval = E2BIG;
-			return E2BIG;
-		}
+		// if(num_bytes > ARG_MAX){
+		// 	*retval = E2BIG;
+		// 	return E2BIG;
+		// }
 	}
 
 	/*By here we have a buffer kargs that holds all of the arg pointers. 
 	How do we copy in the areas of user memory that the pointers originally pointed to? */
+	char argbuf[index][ARG_MAX];
+	size_t lengths[index];
 
-
+	int i;
+	for(i = 0; i < index; i++) {
+		result = copyinstr((const_userptr_t)kargs[i], argbuf[i], ARG_MAX, &lengths[i]); 
+		if(result){
+			*retval = result;
+			return result;
+		}
+	}
 
 	//Operations to load the executable into mem
 	struct addrspace *as;
