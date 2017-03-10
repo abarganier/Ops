@@ -11,6 +11,9 @@ void sys_exit(int);
 struct trapframe *trapframe_copy(struct trapframe *);
 void sys_getpid(int32_t *);
 int sys_execv(const char *, char **, int32_t *);
+void build_stack_str(char * vals[], size_t *);
+int get_total_size(size_t *, int );
+int stack_load(char *, size_t, userptr_t *); 
 
 /* Supporting method that ensures a pointer's address 
    is aligned by a given byte size */

@@ -361,6 +361,10 @@ build_stack_str(char * vals[], size_t * len)
 {	
 	(void)vals;
 	(void)len;
+
+	
+
+
 }
 
 int
@@ -369,8 +373,10 @@ get_total_size(size_t * lengths, int arrsize)
 	int i;
 	size_t total = 0;
 	for(i = 0; i < arrsize; i++) {
-		total += *lengths[i];
-		total += (*lengths[i]) % 4;
+		//total += (*lengths[i]);
+		total += lengths[i];
+		//total += (*lengths[i]) % 4;
+		total += (lengths[i] % 4);
 	}
 	return total;
 }
