@@ -58,6 +58,7 @@ enter_forked_process(struct trapframe *tf, unsigned long nothing)
 {	
 	(void)nothing;
 	struct trapframe trap = *tf;
+	kfree(tf);
 	trap.tf_v0 = 0;
 	trap.tf_a3 = 0;
 	trap.tf_epc += 4;
@@ -286,8 +287,9 @@ build_user_stack(char strings[][ARG_MAX], size_t * lengths, int arrsize, vaddr_t
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
+	kprintf("Entering execv\n");
 	int result;
-	int num_bytes = 0;
+	// int num_bytes = 0;
 	char kprogram[PATH_MAX];
 	size_t prog_len = 0;
 	
@@ -296,70 +298,67 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		*retval = result;
 		return result;
 	}
-	num_bytes += prog_len + 4;
+	kprintf("Copied in prog name: %s\n", kprogram);
+	// num_bytes += prog_len + 4;
+	char *argv;
 
-	userptr_t kargs[ARG_MAX];
+	// Copy in pointer value to get args address in userspace
+	result = copyin((const_userptr_t) args, &argv, 4);
+	if(result){
+		kprintf("Copyin of argv failed\n");
+		*retval = result;
+		return result;
+	}
+	kprintf("Hello\n");
+	kprintf("argv value: %s\n", argv);
+	kprintf("args value: %s\n", *args);
+
+	char *argv_temp = argv;
+	char *ptr_val = argv_temp;
+
 	int index = 0;
-	userptr_t argv = 0;
-
-	//Copy in 0 index of args (should be program pointer)
-	//Check if null
-	//If no, start while loop which checks to see that the last arg copied in is not null
-	result = copyin((const_userptr_t) args, argv, 4);
-	if(result){
-		*retval = result;
-		return result;
-	}
-
-	result = copyin((const_userptr_t) argv, kargs[index], 4);
-	if(result){
-		*retval = result;
-		return result;
-	}
-
-	//Need to loop here until a null pointer is copied in
-	while(kargs[index] != NULL){
+	// Count number of arguments
+	while(ptr_val != NULL){
 		
 		index++;
-		argv += 4;
-		num_bytes =+ 4;
-		
-		//copy in pointer
-		result = copyin((const_userptr_t) argv, kargs[index], 4);
+		argv_temp += 4;
+
+		result = copyin((const_userptr_t) argv_temp, &ptr_val, 4);
 		if(result){
-			*retval = result;
-			return result;
-		}
-
-		//check to see that total number of copied bytes does not exceed ARG_MAX
-		// if(num_bytes > ARG_MAX){
-		// 	*retval = E2BIG;
-		// 	return E2BIG;
-		// }
-	}
-
-	/*By here we have a buffer kargs that holds all of the arg pointers. 
-	How do we copy in the areas of user memory that the pointers originally pointed to? */
-	char argbuf[index][ARG_MAX];
-	size_t lengths[index];
-
-	int i;
-	for(i = 0; i < index; i++) {
-		result = copyinstr((const_userptr_t)kargs[i], argbuf[i], ARG_MAX, &lengths[i]); 
-		if(result){
+			kprintf("Copyin failed while counting args. index = %d\n", index);
 			*retval = result;
 			return result;
 		}
 	}
+
+	kprintf("Finished counting args. num_args = %d\n", index);
+
+	char argstrbuf[ARG_MAX];
+	// size_t lengths[index];
+
+	// int i;
+	// // Copy in string values that our argument pointers point to in userspace
+	// for(i = 0; i < index; i++) {
+	// 	result = copyinstr((const_userptr_t)kargs[i], argstrbuf[i], ARG_MAX, &lengths[i]); 
+	// 	if(result){
+	// 		*retval = result;
+	// 		return result;
+	// 	}
+	// }
+
+	// kprintf("Copied in arg string values.\n");
+
+	// for(i = 0; i < index; i++) {
+	// 	kprintf("Arg %d: %s\n", i+1, argstrbuf[i]);
+	// }
 
 	//Operations to load the executable into mem
 	struct addrspace *as;
-	struct vnode *v;
+	struct vnode *vn;
 	vaddr_t entrypoint, stackptr;
 
-
-	/* Open the file. */
-	result = vfs_open(kprogram, O_RDONLY, 0, &v);
+	kprintf("Opening executable file.\n");
+	result = vfs_open(kprogram, O_RDONLY, 0, &vn);
 	if (result) {
 		*retval = result;
 		return result;
@@ -368,10 +367,11 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	/* We should be a new process. */
 	KASSERT(proc_getas() == NULL);
 
+	kprintf("Creating new address space.\n");
 	/* Create a new address space. */
 	as = as_create();
 	if (as == NULL) {
-		vfs_close(v);
+		vfs_close(vn);
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
@@ -380,38 +380,37 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	proc_setas(as);
 	as_activate();
 
+	kprintf("Loading executable.\n");
 	/* Load the executable. */
-	result = load_elf(v, &entrypoint);
+	result = load_elf(vn, &entrypoint);
 	if (result) {
-		/* p_addrspace will go away when curproc is destroyed */
-		vfs_close(v);
+		vfs_close(vn);
 		*retval = result;
 		return result;
 	}
 
-	/* Done with the file now. */
-	vfs_close(v);
+	kprintf("Closing executable file.\n");
+	vfs_close(vn);
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
 	if (result) {
-		/* p_addrspace will go away when curproc is destroyed */
 		*retval = result;
 		return result;
 	}
 	kprintf("Stkptr after as_define_stack: %x", stackptr);
 
-	//Copy arguments from kernel space to userpsace
-	result = build_user_stack(argbuf, lengths, index, &stackptr);
-	if(result) {
-		*retval = 1;
-		return 1;
-	}
+	// //Copy arguments from kernel space to userpsace
+	// result = build_user_stack(argstrbuf, lengths, index, &stackptr);
+	// if(result) {
+	// 	*retval = 1;
+	// 	return 1;
+	// }
 
-	vaddr_t array_start = stackptr;
+	// vaddr_t array_start = stackptr;
 
-	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
-	enter_new_process(index, (userptr_t)array_start, NULL, stackptr, entrypoint);
+	// //Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
+	enter_new_process(0, (userptr_t)stackptr, NULL, stackptr, entrypoint);
 
 	//SHOULD NOT REACH HERE ON SUCCESS
 	*retval = EINVAL;
