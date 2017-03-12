@@ -12,8 +12,10 @@ main(int argc, char **argv)
 	(void) argc;
 	(void) argv;
   	
-  	char * parmList[] = {"/bin/ls", "-l", "-s", "-h", "i", "j", "thisshitiscrazyannoying",  NULL};
-  	execv("/bin/ls", parmList);
+  	// char * parmList[] = {"/bin/ls", "-l", "-s", "-h", "i", "j", "thisshitiscrazyannoying",  NULL};
+  	// execv("/bin/ls", parmList);
+    const char * parmList[] = {"/bin/ls", "-l", "-s", "-h", "i", "j", "thisshitiscrazyannoying",  NULL};
+    execv("/bin/ls", (char * const *)parmList);
     
   	// int proc_status = 0;
     // int res = 0;

@@ -239,6 +239,7 @@ build_user_stack(char** kargs, size_t * lengths, size_t num_ptrs, userptr_t stkp
 	size_t offset = 0;
 
 
+	kprintf("Beginning to load strings (outside for-loop)\n");
 	//Load strings into userstack one at a time, starting with first arg
 	for(size_t i = 0; i < num_ptrs; i++) {
 
@@ -275,6 +276,8 @@ build_user_stack(char** kargs, size_t * lengths, size_t num_ptrs, userptr_t stkp
 
 	}
 	
+	kprintf("Finished loading strings. Start loading pointers.\n");
+
 	//Create arg pointers and copy them out to userstack
 	*uargv_bytes = offset; //Need this to set argv pointer in enter_new_process
 	size_t total_stack_bytes = offset + (num_ptrs*4);
@@ -289,7 +292,7 @@ build_user_stack(char** kargs, size_t * lengths, size_t num_ptrs, userptr_t stkp
 		}
 	}
 	//kprintf("stkptr points to %p \n", stkptr);
-
+	kprintf("Finished loading pointers. \n");
 	return 0;
 }
 int
@@ -334,15 +337,7 @@ cleanup_double_ptr(char** dbl_ptr, size_t size)
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
-	kprintf("\n");
-	kprintf("Address of args: %p \n", &args);
-	kprintf("Value args points to: %p \n", args);
-	kprintf("Value after that: %s, \n", *args);
-	kprintf("\n");
-	kprintf("Address of args+1: %p \n", &args+1);
-	kprintf("Value args+! points to: %p, \n", args+1);
-	kprintf("Value after that: %s, \n", *(args+1));
-	kprintf("\n");
+
 
 	int result;
 	char kprogram[PATH_MAX];
@@ -360,179 +355,215 @@ sys_execv(const char *program, char **args, int32_t *retval)
 
 
 	/*Copy in 4 bytes of arg pointer to check validity*/
-	result = copyin((const_userptr_t) args, (void *) cur_head_of_args, 4);
+	result = copyin((const_userptr_t) args,  cur_head_of_args, 4);
 	if(result){
 		*retval = result;
 		cleanup_double_ptr(cur_head_of_args,1);
 		return result;
 	}
+	
 
 	/* Do a lookup to get the index count, reset the count, do again to actually copy data in*/
 	while(*cur_head_of_args != NULL){
 		index++;
 		//copyin next 4 bytes of arg pointer to check for validity
-		result = copyin((const_userptr_t) args+(index*4), (void *) cur_head_of_args, 4);
+		result = copyin((const_userptr_t) args+(index*4), cur_head_of_args, 4);
 		if(result){
 			*retval = result;
 			cleanup_double_ptr(cur_head_of_args,1);
 			return result;
 		}
+		//kprintf("Curhead value at index %u is: %s \n", index, cur_head_of_args[0]);
 	}
-	//Note: Index will increment once for null pointer. This is correct. Index should reprepsent the total num of pointers before null.
 
-	//kprintf("Index = %u \n",index);
+	char ** karg_ptrs = kmalloc(sizeof(char *)*index);
+
+	for(size_t j=0; j<index; j++){
+		result = copyin((const_userptr_t) (args+j), &karg_ptrs[j], 4);
+		if(result){
+			kprintf("Copying pointers failed \n");
+			*retval = result;
+			//free stuff
+			return result;
+		}
+		kprintf("Karg value: %x \n", (unsigned int)karg_ptrs[j]);
+	}
+
+
 
 	//Set up *kargs to its max allowable size (ARG-MAX-(index*4)) && start counting num_bytes
-	size_t num_bytes = 0;
-
-
- 	char **kargs = kmalloc(ARG_MAX-(4*index)); //ARG_MAX size minus num_bytes needed for pointers
+	//size_t num_bytes = 0;
+ 	char *kargs = kmalloc(ARG_MAX-(4*index)); //ARG_MAX size minus num_bytes needed for pointers
  	size_t str_lengths[index]; //Sets up an array of size_t for logging the length of each string associated with index pointers
+ 	(void) str_lengths;
+	
+ 	size_t arg_num;
+ 	size_t karg_size = 0;
+ 	size_t ret_length = 0;
+ 	size_t rem_space = ARG_MAX-(4*index);
+ 	size_t lengths[index];
+	kprintf("2nd value: %s \n", karg_ptrs[1]);
+	for(arg_num=0; arg_num<index; arg_num++){
 
-	/* While the arg pointer cur_head_of_args is not null, get str and copyin next 4 bytes of arg pointer */
-	index = 0;
-	result = copyin((const_userptr_t) args, (void *) cur_head_of_args, 4);
-	if(result){
-		*retval = result;
-		cleanup_double_ptr(cur_head_of_args,1);
-		cleanup_double_ptr(kargs, 0);	//Nothing stored in kargs yet, so I'm pretty sure we can just call kfree once
-		return result;
+		result = copyinstr((const_userptr_t) karg_ptrs[arg_num], (char *)&kargs[karg_size], rem_space, &ret_length);
+		if(result){
+			*retval = result;
+			//free shit
+			kprintf("Fail!");
+			return result;
+		}
+	
+		//kprintf("Kargs[%u]: %s \n", arg_num, &kargs[karg_size]);
+
+		karg_size += ret_length;
+		rem_space -= ret_length;
+		size_t num_nulls = ret_length%4;
+		lengths[arg_num] = ret_length+num_nulls;
+		for(size_t k=0; k<num_nulls; k++){
+			kargs[karg_size++] = '\0';
+		}
 	}
-	kprintf("Index = %u \n",index);
-	kprintf("Address of head_of_args in kernel: %p \n", &cur_head_of_args);
-	kprintf("Address head_of_args points to in user space: %p \n", cur_head_of_args);
-	kprintf("Value after that: %s \n", *cur_head_of_args);
-	kprintf("\n");
+	(void) lengths;
 
-	while(*cur_head_of_args != NULL){
+
+	// size_t i;
+	// for(i = 0; i < karg_size; i++)
+ 	//   kprintf("%c", kargs[i]);
+
+/* All them hot spicy strings is here! */
+
+	// result = copyin((const_userptr_t) args, (void *) cur_head_of_args, 4);
+	// if(result){
+	// 	*retval = result;
+	// 	cleanup_double_ptr(cur_head_of_args,1);
+	// 	cleanup_double_ptr(kargs, 0);	//Nothing stored in kargs yet, so I'm pretty sure we can just call kfree once
+	// 	return result;
+	// }
+
+	// while(*cur_head_of_args != NULL){
 		
-		//Grab string from cur_head pointer and store it in kargs
-		result = count_str_size(*cur_head_of_args, &str_lengths[index]);
-		if(result){
-			*retval = result;
-			cleanup_double_ptr(cur_head_of_args,1);
-			cleanup_double_ptr(kargs, 0);	//Nothing stored in kargs yet, so I'm pretty sure we can just call kfree
-			return result;
-		}
+	// 	//Grab string from cur_head pointer and store it in kargs
+	// 	result = count_str_size(*cur_head_of_args, &str_lengths[index]);
+	// 	if(result){
+	// 		*retval = result;
+	// 		cleanup_double_ptr(cur_head_of_args,1);
+	// 		cleanup_double_ptr(kargs, 0);	//Nothing stored in kargs yet, so I'm pretty sure we can just call kfree
+	// 		return result;
+	// 	}
 
-		char *this_arg_string = *cur_head_of_args;
+	// 	char *this_arg_string = *cur_head_of_args;
 		
 
-		kargs[index] = this_arg_string;
+	// 	kargs[index] = this_arg_string;
 
-		num_bytes += str_lengths[index];
-		result = check_arg_size(&num_bytes);
-		if(result){
-			*retval = result;
-			cleanup_double_ptr(cur_head_of_args,1);
-			cleanup_double_ptr(kargs, index+1);
-			return result;
-		}
+	// 	num_bytes += str_lengths[index];
+	// 	result = check_arg_size(&num_bytes);
+	// 	if(result){
+	// 		*retval = result;
+	// 		cleanup_double_ptr(cur_head_of_args,1);
+	// 		cleanup_double_ptr(kargs, index+1);
+	// 		return result;
+	// 	}
 
-		index++;
+	// 	index++;
 
-		//copyin next 4 bytes of arg pointer to check for validity
-		result = copyin((const_userptr_t) args+(index*4), (void *) cur_head_of_args, 4);
-		if(result){
-			*retval = result;
-			cleanup_double_ptr(cur_head_of_args,1);
-			cleanup_double_ptr(kargs, index);
-			return result;
-		}
-		kprintf("Index = %u \n",index);
-		kprintf("Address of head+1 in kernel: %p \n", &cur_head_of_args);
-		kprintf("Address head+1 points to in user space: %p \n", cur_head_of_args);
-		kprintf("Value after that: %s \n", *cur_head_of_args);
-		kprintf("\n");
-	}
+	// 	//copyin next 4 bytes of arg pointer to check for validity
+	// 	result = copyin((const_userptr_t) args+(index*4), (void *) cur_head_of_args, 4);
+	// 	if(result){
+	// 		*retval = result;
+	// 		cleanup_double_ptr(cur_head_of_args,1);
+	// 		cleanup_double_ptr(kargs, index);
+	// 		return result;
+	// 	}
+	// }
 	
 
-	// /*Test to see that string arg storage was successful*/
-	size_t offset = 0;	
-	for(size_t i=0; i<index; i++){
+// 	// /*Test to see that string arg storage was successful*/
+// 	// size_t offset = 0;	
+// 	// for(size_t i=0; i<index; i++){
 		
-		kprintf("Here's a string: %s \n", kargs[offset]);	//have to mod to use lengths to travel kargs
-		offset = offset + str_lengths[index];
-	}
+// 	// 	kprintf("Here's a string: %s \n", kargs[offset]);	//have to mod to use lengths to travel kargs
+// 	// 	offset = offset + str_lengths[i];
+// 	// }
 
 
-	num_bytes += 4*index; //Adds bytes for all the arg pointers
-	result = check_arg_size(&num_bytes);
-	if(result){
-		*retval = result;
-		cleanup_double_ptr(cur_head_of_args,1);
-		cleanup_double_ptr(kargs, index);
-		return result;
-	}
+// 	num_bytes += 4*index; //Adds bytes for all the arg pointers
+// 	result = check_arg_size(&num_bytes);
+// 	if(result){
+// 		*retval = result;
+// 		cleanup_double_ptr(cur_head_of_args,1);
+// 		cleanup_double_ptr(kargs, index);
+// 		return result;
+// 	}
 
-	//Operations to load the executable into mem
-	struct addrspace *as;
-	struct vnode *v;
-	vaddr_t entrypoint, stackptr;
+// 	//Operations to load the executable into mem
+// 	struct addrspace *as;
+// 	struct vnode *v;
+// 	vaddr_t entrypoint, stackptr;
 
-	/* Open the file. */
-	result = vfs_open(kprogram, O_RDONLY, 0, &v);
-	if (result) {
-		*retval = result;
-		return result;
-	}
+// 	/* Open the file. */
+// 	result = vfs_open(kprogram, O_RDONLY, 0, &v);
+// 	if (result) {
+// 		*retval = result;
+// 		return result;
+// 	}
 
-	/* We should be a new process. */
-//	KASSERT(proc_getas() == NULL); 		//Currently failing. Not sure if should be passing for execv.
+// 	/* We should be a new process. */
+// //	KASSERT(proc_getas() == NULL); 		//Currently failing. Not sure if should be passing for execv.
 
-	/* Create a new address space. */
-	as = as_create();
-	if (as == NULL) {
-		vfs_close(v);
-		*retval = ENOMEM;
-		return ENOMEM;
-	}
+// 	/* Create a new address space. */
+// 	as = as_create();
+// 	if (as == NULL) {
+// 		vfs_close(v);
+// 		*retval = ENOMEM;
+// 		return ENOMEM;
+// 	}
 
-	/* Switch to it and activate it. */
-	proc_setas(as);
-	as_activate();
+// 	/* Switch to it and activate it. */
+// 	proc_setas(as);
+// 	as_activate();
 
-	/* Load the executable. */
-	result = load_elf(v, &entrypoint);
-	if (result) {
-		vfs_close(v);
-		*retval = result;
-		return result;
-	}
+// 	/* Load the executable. */
+// 	result = load_elf(v, &entrypoint);
+// 	if (result) {
+// 		vfs_close(v);
+// 		*retval = result;
+// 		return result;
+// 	}
 
-	/* Done with the file now. */
-	vfs_close(v);
+// 	/* Done with the file now. */
+// 	vfs_close(v);
 
-	/* Define the user stack in the address space */
-	result = as_define_stack(as, &stackptr);
-	if (result) {
-		*retval = result;
-		return result;
-	}
-	//kprintf("Stkptr after as_define_stack: %x \n", stackptr);		//Note: stkptr points to 0x80000000. Points 1 after highest stack addr.
-
-
-	//Copy arguments from kernel space to userpsace
-	size_t num_argv_bytes = 0;
-	result = build_user_stack(kargs, str_lengths, index, (userptr_t) stackptr, &num_argv_bytes);
-	if(result) {
-		*retval = result;
-		//free stuff up
-		return result;
-	}
-
-	userptr_t uargv_start = (userptr_t)(stackptr - num_argv_bytes);
-
-	/* Clean up heap before entering new process */
-	cleanup_double_ptr(kargs, 0);
-	cleanup_double_ptr(cur_head_of_args,0);
+// 	/* Define the user stack in the address space */
+// 	result = as_define_stack(as, &stackptr);
+// 	if (result) {
+// 		*retval = result;
+// 		return result;
+// 	}
+// 	//kprintf("Stkptr after as_define_stack: %x \n", stackptr);		//Note: stkptr points to 0x80000000. Points 1 after highest stack addr.
 
 
-	// //Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
-	enter_new_process(index, uargv_start, NULL, stackptr, entrypoint);
+// 	//Copy arguments from kernel space to userpsace
+// 	size_t num_argv_bytes = 0;
+// 	result = build_user_stack(kargs, str_lengths, index, (userptr_t) stackptr, &num_argv_bytes);
+// 	if(result) {
+// 		*retval = result;
+// 		//free stuff up
+// 		return result;
+// 	}
 
-	//SHOULD NOT REACH HERE ON SUCCESS
-	*retval = EINVAL;
-	return -1;
+// 	userptr_t uargv_start = (userptr_t)(stackptr - num_argv_bytes);
+// 	(void)	uargv_start;
+// 	/* Clean up heap before entering new process */
+// 	cleanup_double_ptr(kargs, 0);
+// 	cleanup_double_ptr(cur_head_of_args,0);
 
+
+// 	// // //Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
+// 	// enter_new_process(index, uargv_start, NULL, stackptr, entrypoint);
+
+// 	//SHOULD NOT REACH HERE ON SUCCESS
+// 	*retval = EINVAL;
+// 	return -1;
+	return 0;
 }
