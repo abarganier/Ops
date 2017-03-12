@@ -287,74 +287,60 @@ build_user_stack(char strings[][100], size_t * lengths, int arrsize, vaddr_t * s
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
-	kprintf("Entering execv\n");
 	int result;
-	// int num_bytes = 0;
-	char kprogram[PATH_MAX];
-	size_t prog_len = 0;
-	
-	result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &prog_len); 
-	if(result){
-		*retval = result;
-		return result;
-	}
+    char kprogram[PATH_MAX];
+    size_t prog_len = 0;
+    
 
-	kprintf("Copied in prog name: %s\n", kprogram);
-	char *argv;
+    /* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
+    result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &prog_len); 
+    if(result){
+        *retval = result;
+        return result;
+    }
 
-	// Copy in pointer value to get args address in userspace
-	result = copyin((const_userptr_t) args, &argv, 4);
-	if(result){
-		kprintf("Copyin of argv failed\n");
-		*retval = result;
-		return result;
-	}
+    // Let's be sure to review how much memory this is using/see if it's an issue
+    // If a we have 3 args, then our string buffer at its max size is ARG_MAX-(num_args*4)
+    // This is to say we can fill ARG_MAX with as many chars as we need, but we need to leave
+    // space for all of the pointers that point to the args as well.
+    char **kargs = kmalloc(ARG_MAX);
 
-	char *argv_temp = argv;
-	char *ptr_val = argv_temp;
+    size_t index = 0;
 
-	int index = 0;
-	// Count number of arguments
-	while(ptr_val != NULL){
-		index++;
-		argv_temp += 4;
+    char **cur_head_of_args = kmalloc(sizeof(char *)); //pointer to first string argument. This will be the dest for all copyin tests.
 
-		result = copyin((const_userptr_t) argv_temp, &ptr_val, 4);
-		if(result){
-			kprintf("Copyin failed while counting args. index = %d\n", index);
-			*retval = result;
-			return result;
-		}
-	}
+    /*COPY IN 4 BYTES OF ARG POINTER TO CHECK VALIDITY*/
+    result = copyin((const_userptr_t) args, (void *) cur_head_of_args, 4);
+    if(result){
+        *retval = result;
+        //kfree(cur_head_of_args);
+        //kfree(kargs);
+        return result;
+    }
 
+    /*WHILE THE ARG POINTER CUR_HEAD_OF_ARGS IS NOT NULL, GET ITS STRING AND COPYIN THE NEXT 4 BYTES OF ARG POINTER*/
+    while(*cur_head_of_args != NULL){
+        //Grab string from cur_head pointer and store it in kargs (Use copystr to get length of each string. Not needed now, but will need for padding later)
 
-	int i;
-	argv_temp = argv;
-	char * arg_ptrs[index];
-	// Get memory addresses for strings.
-	// Since array is contiguous in memory, we can just keep adding 4 bytes for # of args.
-	for(i = 0; i < index; i++) {
-		arg_ptrs[i] = (char *)(argv_temp+4);
-		argv_temp += 4;
-	}
+        // Dereferencing cur_head_of_args here will violate the userspace/kernelspace memory separation I think.
+        // I assume this is what you referred to in the above comment with using copyinstr?
+        char *this_arg_string = *cur_head_of_args;
 
-	char argstrbuf[index][100];
-	size_t lengths[index];
-	// Copy in string values that our argument pointers point to in userspace
-	for(i = 0; i < index; i++) {
-		result = copyinstr((const_userptr_t)arg_ptrs[i], argstrbuf[i], 100, &lengths[i]); 
-		if(result){
-			kprintf("copyinstr failed on try %d\n", i);
-			kprintf("Error %d\n", result);
-			*retval = result;
-			return result;
-		}
-	}
+        // Let's review this line, I'm not sure I'm following.
+        kargs[index*PATH_MAX] = this_arg_string;    //Index tracks iterations. PATH_MAX ensures each string is allocated equal space initially.
 
-	kprintf("Copied in arg string values.\n");
-	for(i = 0; i < index; i++) {
-		kprintf("Arg #%d value: %s\n", i+1, argstrbuf[i]);
-	}
+        //increment index
+        index++;
+
+        //copyin next 4 bytes of arg pointer to check for validity
+        result = copyin((const_userptr_t) args+(index*4), (void *) cur_head_of_args, 4);
+        if(result){
+            *retval = result;
+            //kfree(cur_head_of_args);
+            //kfree(kargs);
+            return result;
+        }
+    }
 
 	struct addrspace *as;
 	struct vnode *vn;
@@ -405,11 +391,11 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	stackptr -= 1; // 0x80000000 is not a valid portion of the user stack
 
 	// //Copy arguments from kernel space to userpsace
-	result = build_user_stack(argstrbuf, lengths, index, &stackptr);
-	if(result) {
-		*retval = 1;
-		return 1;
-	}
+	// result = build_user_stack(argstrbuf, lengths, index, &stackptr);
+	// if(result) {
+	// 	*retval = 1;
+	// 	return 1;
+	// }
 
 	// vaddr_t array_start = stackptr;
 
