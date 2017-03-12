@@ -240,7 +240,7 @@ load_arg_pointers(vaddr_t * addresses, vaddr_t * stkptr, int arrsize)
 }
 
 int
-build_user_stack(char strings[][ARG_MAX], size_t * lengths, int arrsize, vaddr_t * stkptr)
+build_user_stack(char strings[][100], size_t * lengths, int arrsize, vaddr_t * stkptr)
 {
 	vaddr_t addresses[arrsize];
 	int i, result;
@@ -298,8 +298,8 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		*retval = result;
 		return result;
 	}
+
 	kprintf("Copied in prog name: %s\n", kprogram);
-	// num_bytes += prog_len + 4;
 	char *argv;
 
 	// Copy in pointer value to get args address in userspace
@@ -309,9 +309,6 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		*retval = result;
 		return result;
 	}
-	kprintf("Hello\n");
-	kprintf("argv value: %s\n", argv);
-	kprintf("args value: %s\n", *args);
 
 	char *argv_temp = argv;
 	char *ptr_val = argv_temp;
@@ -319,7 +316,6 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	int index = 0;
 	// Count number of arguments
 	while(ptr_val != NULL){
-		
 		index++;
 		argv_temp += 4;
 
@@ -331,28 +327,35 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		}
 	}
 
-	kprintf("Finished counting args. num_args = %d\n", index);
 
-	char argstrbuf[ARG_MAX];
-	// size_t lengths[index];
+	int i;
+	argv_temp = argv;
+	char * arg_ptrs[index];
+	// Get memory addresses for strings.
+	// Since array is contiguous in memory, we can just keep adding 4 bytes for # of args.
+	for(i = 0; i < index; i++) {
+		arg_ptrs[i] = (char *)(argv_temp+4);
+		argv_temp += 4;
+	}
 
-	// int i;
-	// // Copy in string values that our argument pointers point to in userspace
-	// for(i = 0; i < index; i++) {
-	// 	result = copyinstr((const_userptr_t)kargs[i], argstrbuf[i], ARG_MAX, &lengths[i]); 
-	// 	if(result){
-	// 		*retval = result;
-	// 		return result;
-	// 	}
-	// }
+	char argstrbuf[index][100];
+	size_t lengths[index];
+	// Copy in string values that our argument pointers point to in userspace
+	for(i = 0; i < index; i++) {
+		result = copyinstr((const_userptr_t)arg_ptrs[i], argstrbuf[i], 100, &lengths[i]); 
+		if(result){
+			kprintf("copyinstr failed on try %d\n", i);
+			kprintf("Error %d\n", result);
+			*retval = result;
+			return result;
+		}
+	}
 
-	// kprintf("Copied in arg string values.\n");
+	kprintf("Copied in arg string values.\n");
+	for(i = 0; i < index; i++) {
+		kprintf("Arg #%d value: %s\n", i+1, argstrbuf[i]);
+	}
 
-	// for(i = 0; i < index; i++) {
-	// 	kprintf("Arg %d: %s\n", i+1, argstrbuf[i]);
-	// }
-
-	//Operations to load the executable into mem
 	struct addrspace *as;
 	struct vnode *vn;
 	vaddr_t entrypoint, stackptr;
@@ -365,7 +368,7 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	}
 
 	/* We should be a new process. */
-	KASSERT(proc_getas() == NULL);
+	// KASSERT(proc_getas() == NULL);
 
 	kprintf("Creating new address space.\n");
 	/* Create a new address space. */
@@ -399,13 +402,14 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		return result;
 	}
 	kprintf("Stkptr after as_define_stack: %x", stackptr);
+	stackptr -= 1; // 0x80000000 is not a valid portion of the user stack
 
 	// //Copy arguments from kernel space to userpsace
-	// result = build_user_stack(argstrbuf, lengths, index, &stackptr);
-	// if(result) {
-	// 	*retval = 1;
-	// 	return 1;
-	// }
+	result = build_user_stack(argstrbuf, lengths, index, &stackptr);
+	if(result) {
+		*retval = 1;
+		return 1;
+	}
 
 	// vaddr_t array_start = stackptr;
 

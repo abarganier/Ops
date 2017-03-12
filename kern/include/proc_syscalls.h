@@ -12,7 +12,7 @@ struct trapframe *trapframe_copy(struct trapframe *);
 void sys_getpid(int32_t *);
 int sys_execv(const char *, char **, int32_t *);
 int load_arg_pointers(vaddr_t *, vaddr_t *, int);
-int build_user_stack(char strings[][ARG_MAX], size_t * lengths, int arrsize, vaddr_t * stkptr);
+int build_user_stack(char strings[][100], size_t * lengths, int arrsize, vaddr_t * stkptr);
 
 /* Supporting method that ensures a pointer's address 
    is aligned by a given byte size */
