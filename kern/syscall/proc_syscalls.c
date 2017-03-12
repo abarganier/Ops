@@ -58,7 +58,6 @@ enter_forked_process(struct trapframe *tf, unsigned long nothing)
 {	
 	(void)nothing;
 	struct trapframe trap = *tf;
-	kfree(tf);
 	trap.tf_v0 = 0;
 	trap.tf_a3 = 0;
 	trap.tf_epc += 4;
@@ -228,139 +227,263 @@ trapframe_copy(struct trapframe *parent_tf)
 	return child_tf;
 }
 
-int
-load_arg_pointers(vaddr_t * addresses, vaddr_t * stkptr, int arrsize)
-{
-	*stkptr -= arrsize*4;
-	int result = copyout((const void *)addresses, (void*)stkptr, arrsize*4);
-	if(result) {
-		return result;
-	}
-	return 0;
-}
 
 int
-build_user_stack(char strings[][100], size_t * lengths, int arrsize, vaddr_t * stkptr)
+build_user_stack(char** kargs, size_t * lengths, size_t num_ptrs, userptr_t stkptr, size_t *uargv_bytes)
 {
-	vaddr_t addresses[arrsize];
-	int i, result;
-	char nothing = '\0';
+	//NOTE: each ptr should point to stkptr + appropriate offset (I think)
 
-	for(i = 0; i < arrsize; i++) {
+	int result;
+	char nullStr = '\0';
+	size_t actual = 0;
+	size_t offset = 0;
 
-		int nulls = lengths[i] % 4;
-		size_t offset = lengths[i] + nulls;
-		*stkptr -= offset;
-		addresses[i] = *stkptr;
+
+	//Load strings into userstack one at a time, starting with first arg
+	for(size_t i = 0; i < num_ptrs; i++) {
+
+		//Calculate how many nulls need to be added
+		size_t num_nulls = lengths[i] % 4;
+		offset += lengths[i];
+		//kargs_offset += lengths[i];
+		offset += num_nulls;
 		
-		size_t ch;
-		for(ch = 0; ch < offset; ch++) {
 
-			if(ch < lengths[i]) {
-
-				result = copyout((const void *)&strings[i][ch], (void *)stkptr, 1);
-				if(result) {
-					return result;
-				}
-				*stkptr += 1;
-
-			} else {
-
-				result = copyout((const void *)&nothing, (void *)stkptr, 1);
-				if(result) {
-					return result;
-				}
-				*stkptr += 1;
-			}
+		/*Copy out the string before adding necessary null chars */
+		result = copyoutstr((const char *)&kargs[i], (userptr_t) (stkptr - offset), lengths[i], &actual);
+		if(result){
+			return result;
 		}
 
-		*stkptr = addresses[i]; // does stkptr point to the next available spot, or the top used address?
-	}
+		// kprintf("nullStr address is: %p \n", &nullStr);
+		// kprintf("nullStr value is: %c \n", nullStr);
+		for(size_t j=0; j<num_nulls; j++){
+			result = copyout(&nullStr, (userptr_t)(stkptr-offset+lengths[i]+j), 1); 
+			if(result){
+				return result;
+			}
+			lengths[i] += num_nulls;
+			// kprintf("stkptr is pointing to: %p", stkptr-offset+lengths[i]+j);
+		}
 
-	result = load_arg_pointers(addresses, stkptr, arrsize);
-	if(result) {
-		return result;
+		// kprintf("\n");
+		// kprintf("kargs[i] address is: %p \n", &kargs[i]);
+		// kprintf("Value of kargs[i]: %s \n", kargs[i]);
+		// kprintf("\n");
+		// kprintf("stkptr points to: %p", stkptr);
+		// kprintf("\n");
+
+	}
+	
+	//Create arg pointers and copy them out to userstack
+	*uargv_bytes = offset; //Need this to set argv pointer in enter_new_process
+	size_t total_stack_bytes = offset + (num_ptrs*4);
+	offset = 0;
+	for(size_t k=0; k<num_ptrs; k++){
+		offset += lengths[k];
+		userptr_t this_pointer = (userptr_t) (stkptr - offset); //Not positive this sets a userspace pointer
+
+		result = copyout(this_pointer,(userptr_t) (stkptr - total_stack_bytes + (4*k)), 4);
+		if(result){
+			return result;
+		}
+	}
+	//kprintf("stkptr points to %p \n", stkptr);
+
+	return 0;
+}
+int
+count_str_size(char *str, size_t *length)
+{
+	//Assume valid arguments for now
+	KASSERT(str != NULL);
+	KASSERT(length != NULL);
+	size_t len=1;					//Assumption: str is not passed in null, so first char is non-null
+	while(str[len] != '\0'){
+
+		len++;
+		
+		if(len>PATH_MAX){ 		//Should be NAME_MAX or PATH_MAX?
+			return ENAMETOOLONG;
+		}
+	}
+	*length = len;
+	return 0;
+}
+
+int
+check_arg_size(size_t *num_bytes)
+{
+	if(*num_bytes>ARG_MAX){
+		return E2BIG;
 	}
 	return 0;
 }
+
+/* Exists in case there is some special way to clean up double ptrs */
+void
+cleanup_double_ptr(char** dbl_ptr, size_t size)
+{
+	for(size_t i=0; i<size; i++){
+		kfree(dbl_ptr[i]);
+	}
+	kfree(dbl_ptr);
+}
+
 
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
+	kprintf("\n");
+	kprintf("Address of args: %p \n", &args);
+	kprintf("Value args points to: %p \n", args);
+	kprintf("Value after that: %s, \n", *args);
+	kprintf("\n");
+	kprintf("Address of args+1: %p \n", &args+1);
+	kprintf("Value args+! points to: %p, \n", args+1);
+	kprintf("Value after that: %s, \n", *(args+1));
+	kprintf("\n");
+
 	int result;
-    char kprogram[PATH_MAX];
-    size_t prog_len = 0;
-    
+	char kprogram[PATH_MAX];
+	size_t prog_len = 0;
 
-    /* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
-    result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &prog_len); 
-    if(result){
-        *retval = result;
-        return result;
-    }
+	/* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
+	result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &prog_len); 
+	if(result){
+		*retval = result;
+		return result;
+	}
 
-    // Let's be sure to review how much memory this is using/see if it's an issue
-    // If a we have 3 args, then our string buffer at its max size is ARG_MAX-(num_args*4)
-    // This is to say we can fill ARG_MAX with as many chars as we need, but we need to leave
-    // space for all of the pointers that point to the args as well.
-    char **kargs = kmalloc(ARG_MAX);
+	size_t index = 0;
+	char **cur_head_of_args = kmalloc(sizeof(char *)); //first string argument. This will also serve as the place where all copyin tests go.
 
-    size_t index = 0;
 
-    char **cur_head_of_args = kmalloc(sizeof(char *)); //pointer to first string argument. This will be the dest for all copyin tests.
+	/*Copy in 4 bytes of arg pointer to check validity*/
+	result = copyin((const_userptr_t) args, (void *) cur_head_of_args, 4);
+	if(result){
+		*retval = result;
+		cleanup_double_ptr(cur_head_of_args,1);
+		return result;
+	}
 
-    /*COPY IN 4 BYTES OF ARG POINTER TO CHECK VALIDITY*/
-    result = copyin((const_userptr_t) args, (void *) cur_head_of_args, 4);
-    if(result){
-        *retval = result;
-        //kfree(cur_head_of_args);
-        //kfree(kargs);
-        return result;
-    }
+	/* Do a lookup to get the index count, reset the count, do again to actually copy data in*/
+	while(*cur_head_of_args != NULL){
+		index++;
+		//copyin next 4 bytes of arg pointer to check for validity
+		result = copyin((const_userptr_t) args+(index*4), (void *) cur_head_of_args, 4);
+		if(result){
+			*retval = result;
+			cleanup_double_ptr(cur_head_of_args,1);
+			return result;
+		}
+	}
+	//Note: Index will increment once for null pointer. This is correct. Index should reprepsent the total num of pointers before null.
 
-    /*WHILE THE ARG POINTER CUR_HEAD_OF_ARGS IS NOT NULL, GET ITS STRING AND COPYIN THE NEXT 4 BYTES OF ARG POINTER*/
-    while(*cur_head_of_args != NULL){
-        //Grab string from cur_head pointer and store it in kargs (Use copystr to get length of each string. Not needed now, but will need for padding later)
+	//kprintf("Index = %u \n",index);
 
-        // Dereferencing cur_head_of_args here will violate the userspace/kernelspace memory separation I think.
-        // I assume this is what you referred to in the above comment with using copyinstr?
-        char *this_arg_string = *cur_head_of_args;
+	//Set up *kargs to its max allowable size (ARG-MAX-(index*4)) && start counting num_bytes
+	size_t num_bytes = 0;
 
-        // Let's review this line, I'm not sure I'm following.
-        kargs[index*PATH_MAX] = this_arg_string;    //Index tracks iterations. PATH_MAX ensures each string is allocated equal space initially.
 
-        //increment index
-        index++;
+ 	char **kargs = kmalloc(ARG_MAX-(4*index)); //ARG_MAX size minus num_bytes needed for pointers
+ 	size_t str_lengths[index]; //Sets up an array of size_t for logging the length of each string associated with index pointers
 
-        //copyin next 4 bytes of arg pointer to check for validity
-        result = copyin((const_userptr_t) args+(index*4), (void *) cur_head_of_args, 4);
-        if(result){
-            *retval = result;
-            //kfree(cur_head_of_args);
-            //kfree(kargs);
-            return result;
-        }
-    }
+	/* While the arg pointer cur_head_of_args is not null, get str and copyin next 4 bytes of arg pointer */
+	index = 0;
+	result = copyin((const_userptr_t) args, (void *) cur_head_of_args, 4);
+	if(result){
+		*retval = result;
+		cleanup_double_ptr(cur_head_of_args,1);
+		cleanup_double_ptr(kargs, 0);	//Nothing stored in kargs yet, so I'm pretty sure we can just call kfree once
+		return result;
+	}
+	kprintf("Index = %u \n",index);
+	kprintf("Address of head_of_args in kernel: %p \n", &cur_head_of_args);
+	kprintf("Address head_of_args points to in user space: %p \n", cur_head_of_args);
+	kprintf("Value after that: %s \n", *cur_head_of_args);
+	kprintf("\n");
 
+	while(*cur_head_of_args != NULL){
+		
+		//Grab string from cur_head pointer and store it in kargs
+		result = count_str_size(*cur_head_of_args, &str_lengths[index]);
+		if(result){
+			*retval = result;
+			cleanup_double_ptr(cur_head_of_args,1);
+			cleanup_double_ptr(kargs, 0);	//Nothing stored in kargs yet, so I'm pretty sure we can just call kfree
+			return result;
+		}
+
+		char *this_arg_string = *cur_head_of_args;
+		
+
+		kargs[index] = this_arg_string;
+
+		num_bytes += str_lengths[index];
+		result = check_arg_size(&num_bytes);
+		if(result){
+			*retval = result;
+			cleanup_double_ptr(cur_head_of_args,1);
+			cleanup_double_ptr(kargs, index+1);
+			return result;
+		}
+
+		index++;
+
+		//copyin next 4 bytes of arg pointer to check for validity
+		result = copyin((const_userptr_t) args+(index*4), (void *) cur_head_of_args, 4);
+		if(result){
+			*retval = result;
+			cleanup_double_ptr(cur_head_of_args,1);
+			cleanup_double_ptr(kargs, index);
+			return result;
+		}
+		kprintf("Index = %u \n",index);
+		kprintf("Address of head+1 in kernel: %p \n", &cur_head_of_args);
+		kprintf("Address head+1 points to in user space: %p \n", cur_head_of_args);
+		kprintf("Value after that: %s \n", *cur_head_of_args);
+		kprintf("\n");
+	}
+	
+
+	// /*Test to see that string arg storage was successful*/
+	size_t offset = 0;	
+	for(size_t i=0; i<index; i++){
+		
+		kprintf("Here's a string: %s \n", kargs[offset]);	//have to mod to use lengths to travel kargs
+		offset = offset + str_lengths[index];
+	}
+
+
+	num_bytes += 4*index; //Adds bytes for all the arg pointers
+	result = check_arg_size(&num_bytes);
+	if(result){
+		*retval = result;
+		cleanup_double_ptr(cur_head_of_args,1);
+		cleanup_double_ptr(kargs, index);
+		return result;
+	}
+
+	//Operations to load the executable into mem
 	struct addrspace *as;
-	struct vnode *vn;
+	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 
-	kprintf("Opening executable file.\n");
-	result = vfs_open(kprogram, O_RDONLY, 0, &vn);
+	/* Open the file. */
+	result = vfs_open(kprogram, O_RDONLY, 0, &v);
 	if (result) {
 		*retval = result;
 		return result;
 	}
 
 	/* We should be a new process. */
-	// KASSERT(proc_getas() == NULL);
+//	KASSERT(proc_getas() == NULL); 		//Currently failing. Not sure if should be passing for execv.
 
-	kprintf("Creating new address space.\n");
 	/* Create a new address space. */
 	as = as_create();
 	if (as == NULL) {
-		vfs_close(vn);
+		vfs_close(v);
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
@@ -369,17 +492,16 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	proc_setas(as);
 	as_activate();
 
-	kprintf("Loading executable.\n");
 	/* Load the executable. */
-	result = load_elf(vn, &entrypoint);
+	result = load_elf(v, &entrypoint);
 	if (result) {
-		vfs_close(vn);
+		vfs_close(v);
 		*retval = result;
 		return result;
 	}
 
-	kprintf("Closing executable file.\n");
-	vfs_close(vn);
+	/* Done with the file now. */
+	vfs_close(v);
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
@@ -387,22 +509,30 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		*retval = result;
 		return result;
 	}
-	kprintf("Stkptr after as_define_stack: %x", stackptr);
-	stackptr -= 1; // 0x80000000 is not a valid portion of the user stack
+	//kprintf("Stkptr after as_define_stack: %x \n", stackptr);		//Note: stkptr points to 0x80000000. Points 1 after highest stack addr.
 
-	// //Copy arguments from kernel space to userpsace
-	// result = build_user_stack(argstrbuf, lengths, index, &stackptr);
-	// if(result) {
-	// 	*retval = 1;
-	// 	return 1;
-	// }
 
-	// vaddr_t array_start = stackptr;
+	//Copy arguments from kernel space to userpsace
+	size_t num_argv_bytes = 0;
+	result = build_user_stack(kargs, str_lengths, index, (userptr_t) stackptr, &num_argv_bytes);
+	if(result) {
+		*retval = result;
+		//free stuff up
+		return result;
+	}
+
+	userptr_t uargv_start = (userptr_t)(stackptr - num_argv_bytes);
+
+	/* Clean up heap before entering new process */
+	cleanup_double_ptr(kargs, 0);
+	cleanup_double_ptr(cur_head_of_args,0);
+
 
 	// //Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
-	enter_new_process(0, (userptr_t)stackptr, NULL, stackptr, entrypoint);
+	enter_new_process(index, uargv_start, NULL, stackptr, entrypoint);
 
 	//SHOULD NOT REACH HERE ON SUCCESS
 	*retval = EINVAL;
 	return -1;
+
 }
