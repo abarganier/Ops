@@ -231,7 +231,6 @@ trapframe_copy(struct trapframe *parent_tf)
 int
 build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr, size_t karg_size)
 {
-
 	int result;
 
 	userptr_t og_stkptr = stkptr;
@@ -268,29 +267,32 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 	size_t i;
 	for(i = 0; i < num_ptrs; i++) {
 
-		kprintf("Setting pointer argv[%d] to point to: %s at address %x\n\n", i, (char *)stkptr, (unsigned int)stkptr);
+		kprintf("Setting pointer argv[%d] at address %x to point to: %s at address %x\n\n", i, (unsigned int)argv_ptr, (char *)stkptr, (unsigned int)stkptr);
 
-		result = copyout((char *)stkptr, (userptr_t)argv_ptr, 4);
+		result = copyout((char *)stkptr, argv_ptr, 4);
 		if(result) {
 			kprintf("Copyout of argv_ptr # %d failed\n", i);
 			return result;
 		}
 
-		result = copyin((const_userptr_t)argv_ptr, &karg_ptr_checks, 4);
+		result = copyin((const_userptr_t)argv_ptr, karg_ptr_checks, 4);
 		if(result){
 			kprintf("Copying in argv pointer value to check validity failed\n");
-			//free stuff
 			return result;
 		}
 
 		kprintf("karg_ptr_checks value: %x\n", (unsigned int)karg_ptr_checks);
 
-		argv_ptr += 4;
+		argv_ptr = (userptr_t) argv_ptr+4;
 		stkptr += lengths[i];
 	}
 
-
-	kprintf("argv[%d] pointer address is: %x \n\n", i, (unsigned int)argv_ptr);
+	result = copyin((const_userptr_t)argv_ptr, &karg_ptr_checks, 4);
+	if(result){
+		kprintf("Copying in argv pointer value to check validity failed\n");
+		return result;
+	}
+	kprintf("karg_ptr_checks value (should be the final null element): %x\n", (unsigned int)karg_ptr_checks);
 
 	kprintf("Finished copying out values to user stack\n");
 
