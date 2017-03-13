@@ -236,7 +236,9 @@ build_user_stack(char* kargs, size_t * lengths, size_t num_ptrs, userptr_t stkpt
 	(void)lengths;
 	(void)num_ptrs;
 
+
 	userptr_t og_stkptr = stkptr;
+	kprintf("Value at stack ptr: %s\n", (char *)stkptr);
 	// copy out string
 	stkptr -= karg_size;
 	result = copyout(kargs, stkptr, karg_size);
@@ -244,87 +246,34 @@ build_user_stack(char* kargs, size_t * lengths, size_t num_ptrs, userptr_t stkpt
 		kprintf("Copyout of string values to user stack failed! Error: %d\n", result);
 		return result;
 	}
-	stkptr += karg_size;
+	stkptr = og_stkptr;
 
-	char **argv = kmalloc(sizeof(char *)*num_ptrs);
+	char **argv = kmalloc(sizeof(char *)*(num_ptrs+1));
 
 	for(size_t i = 0; i < num_ptrs; i++) {
 		stkptr -= lengths[i];
+		kprintf("argv[%d] being set to address %x. lengths[%d] = %d\n", i, (unsigned int)stkptr, i, lengths[i]);
 		argv[i] = (char *) stkptr;
 	}
 
-	stkptr = og_stkptr - karg_size - (4*num_ptrs);
+	argv[num_ptrs] = NULL;
+	for(size_t i = 0; i < num_ptrs+1; i++) {
+		if(argv[i] == NULL) {
+			kprintf("argv[%d] is: NULL\n", i);
+		} else {
+			kprintf("argv[%d] is: %s\n", i, argv[i]);
+		}	
+	}
 
-	result = copyout(argv, stkptr, (4*num_ptrs));
+	stkptr = og_stkptr - karg_size - (4*num_ptrs+1);
+
+	result = copyout(argv, stkptr, (4*num_ptrs+1));
 	if(result) {
 		kprintf("Copyout of argv array failed. Error: %d\n", result);
 		return result;
 	}
 	kprintf("Finished copying out values to user stack\n");
 
-	return 0;
-	//NOTE: each ptr should point to stkptr + appropriate offset (I think)
-
-	// int result;
-	// char nullStr = '\0';
-	// size_t actual = 0;
-	// size_t offset = 0;
-
-
-	// kprintf("Beginning to load strings (outside for-loop)\n");
-	// //Load strings into userstack one at a time, starting with first arg
-	// for(size_t i = 0; i < num_ptrs; i++) {
-
-	// 	//Calculate how many nulls need to be added
-	// 	size_t num_nulls = lengths[i] % 4;
-	// 	offset += lengths[i];
-	// 	//kargs_offset += lengths[i];
-	// 	offset += num_nulls;
-		
-
-	// 	/*Copy out the string before adding necessary null chars */
-	// 	result = copyoutstr((const char *)&kargs[i], (userptr_t) (stkptr - offset), lengths[i], &actual);
-	// 	if(result){
-	// 		return result;
-	// 	}
-
-	// 	// kprintf("nullStr address is: %p \n", &nullStr);
-	// 	// kprintf("nullStr value is: %c \n", nullStr);
-	// 	for(size_t j=0; j<num_nulls; j++){
-	// 		result = copyout(&nullStr, (userptr_t)(stkptr-offset+lengths[i]+j), 1); 
-	// 		if(result){
-	// 			return result;
-	// 		}
-	// 		lengths[i] += num_nulls;
-	// 		// kprintf("stkptr is pointing to: %p", stkptr-offset+lengths[i]+j);
-	// 	}
-
-	// 	// kprintf("\n");
-	// 	// kprintf("kargs[i] address is: %p \n", &kargs[i]);
-	// 	// kprintf("Value of kargs[i]: %s \n", kargs[i]);
-	// 	// kprintf("\n");
-	// 	// kprintf("stkptr points to: %p", stkptr);
-	// 	// kprintf("\n");
-
-	// }
-	
-	// kprintf("Finished loading strings. Start loading pointers.\n");
-
-	// //Create arg pointers and copy them out to userstack
-	// *uargv_bytes = offset; //Need this to set argv pointer in enter_new_process
-	// size_t total_stack_bytes = offset + (num_ptrs*4);
-	// offset = 0;
-	// for(size_t k=0; k<num_ptrs; k++){
-	// 	offset += lengths[k];
-	// 	userptr_t this_pointer = (userptr_t) (stkptr - offset); //Not positive this sets a userspace pointer
-
-	// 	result = copyout(this_pointer,(userptr_t) (stkptr - total_stack_bytes + (4*k)), 4);
-	// 	if(result){
-	// 		return result;
-	// 	}
-	// }
-	// //kprintf("stkptr points to %p \n", stkptr);
-	// kprintf("Finished loading pointers. \n");
 	return 0;
 }
 
@@ -419,7 +368,7 @@ sys_execv(const char *program, char **args, int32_t *retval)
 			//free stuff
 			return result;
 		}
-		kprintf("Karg value: %x \n", (unsigned int)karg_ptrs[j]);
+		// kprintf("Karg value: %x \n", (unsigned int)karg_ptrs[j]);
 	}
 
 
@@ -449,19 +398,21 @@ sys_execv(const char *program, char **args, int32_t *retval)
 
 		karg_size += ret_length;
 		rem_space -= ret_length;
-		size_t num_nulls = ret_length%4;
+		kprintf("Length of arg %d copydin is: %d\n", arg_num, ret_length);
+		size_t num_nulls = ret_length == 0 ? 0 : 4-(ret_length%4);
+		kprintf("num_nulls for arg %d: %d\n", arg_num, num_nulls);
 		lengths[arg_num] = ret_length+num_nulls;
 		for(size_t k=0; k<num_nulls; k++){
 			kargs[karg_size++] = '\0';
 		}
 	}
-
 	kprintf("Printing that spicy string\n");
 	size_t i;
 	for(i = 0; i < karg_size; i++) {
 		kprintf("%c", kargs[i]);
 	}
 	kprintf("\n");
+	kprintf("karg_size is %d\n", karg_size);
 
 	/* All them hot spicy strings is here! */
 
