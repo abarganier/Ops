@@ -249,8 +249,9 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 
 	// allocate empty char * array
 	char **argv = kmalloc(sizeof(char *) * (num_ptrs+1));
+	argv[num_ptrs] = NULL;
 	
-	kprintf("Copying out argv array starting at address: %x\n", (unsigned int)stkptr);
+	kprintf("Copying out argv array starting at address: %x\n\n", (unsigned int)stkptr);
 
 	result = copyout(argv, (userptr_t)stkptr, (4*(num_ptrs+1)));
 	if(result) {
@@ -261,16 +262,35 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 	stkptr = og_stkptr - karg_size;
 	userptr_t argv_ptr = og_stkptr - karg_size - (4*(num_ptrs+1));
 
+	char ** karg_ptr_checks = kmalloc(sizeof(char *));
+
 	// Fill array with userspace addresses
-	for(size_t i = 0; i < num_ptrs; i++) {
+	size_t i;
+	for(i = 0; i < num_ptrs; i++) {
+
+		kprintf("Setting pointer argv[%d] to point to: %s at address %x\n\n", i, (char *)stkptr, (unsigned int)stkptr);
+
 		result = copyout((char *)stkptr, (userptr_t)argv_ptr, 4);
 		if(result) {
 			kprintf("Copyout of argv_ptr # %d failed\n", i);
 			return result;
 		}
+
+		result = copyin((const_userptr_t)argv_ptr, &karg_ptr_checks, 4);
+		if(result){
+			kprintf("Copying in argv pointer value to check validity failed\n");
+			//free stuff
+			return result;
+		}
+
+		kprintf("karg_ptr_checks value: %x\n", (unsigned int)karg_ptr_checks);
+
 		argv_ptr += 4;
 		stkptr += lengths[i];
 	}
+
+
+	kprintf("argv[%d] pointer address is: %x \n\n", i, (unsigned int)argv_ptr);
 
 	kprintf("Finished copying out values to user stack\n");
 
@@ -416,12 +436,13 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	}
 
 	stackptr -= (karg_size + ((index+1)*4));
+	userptr_t argv_ptr_copy = (userptr_t)stackptr;
 
 
 	kprintf("Final stackptr value: %x\n", (unsigned int)stackptr);
 
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
-	enter_new_process(index, (userptr_t)stackptr, (userptr_t)NULL, stackptr, entrypoint);
+	enter_new_process(index, argv_ptr_copy, NULL, stackptr, entrypoint);
 
  	//SHOULD NOT REACH HERE ON SUCCESS
 	*retval = EINVAL;
