@@ -229,72 +229,105 @@ trapframe_copy(struct trapframe *parent_tf)
 
 
 int
-build_user_stack(char** kargs, size_t * lengths, size_t num_ptrs, userptr_t stkptr, size_t *uargv_bytes)
+build_user_stack(char* kargs, size_t * lengths, size_t num_ptrs, userptr_t stkptr, size_t karg_size)
 {
-	//NOTE: each ptr should point to stkptr + appropriate offset (I think)
 
 	int result;
-	char nullStr = '\0';
-	size_t actual = 0;
-	size_t offset = 0;
+	(void)lengths;
+	(void)num_ptrs;
 
+	userptr_t og_stkptr = stkptr;
+	// copy out string
+	stkptr -= karg_size;
+	result = copyout(kargs, stkptr, karg_size);
+	if(result) {
+		kprintf("Copyout of string values to user stack failed! Error: %d\n", result);
+		return result;
+	}
+	stkptr += karg_size;
 
-	kprintf("Beginning to load strings (outside for-loop)\n");
-	//Load strings into userstack one at a time, starting with first arg
+	char **argv = kmalloc(sizeof(char *)*num_ptrs);
+
 	for(size_t i = 0; i < num_ptrs; i++) {
+		stkptr -= lengths[i];
+		argv[i] = (char *) stkptr;
+	}
 
-		//Calculate how many nulls need to be added
-		size_t num_nulls = lengths[i] % 4;
-		offset += lengths[i];
-		//kargs_offset += lengths[i];
-		offset += num_nulls;
+	stkptr = og_stkptr - karg_size - (4*num_ptrs);
+
+	result = copyout(argv, stkptr, (4*num_ptrs));
+	if(result) {
+		kprintf("Copyout of argv array failed. Error: %d\n", result);
+		return result;
+	}
+	kprintf("Finished copying out values to user stack\n");
+
+	return 0;
+	//NOTE: each ptr should point to stkptr + appropriate offset (I think)
+
+	// int result;
+	// char nullStr = '\0';
+	// size_t actual = 0;
+	// size_t offset = 0;
+
+
+	// kprintf("Beginning to load strings (outside for-loop)\n");
+	// //Load strings into userstack one at a time, starting with first arg
+	// for(size_t i = 0; i < num_ptrs; i++) {
+
+	// 	//Calculate how many nulls need to be added
+	// 	size_t num_nulls = lengths[i] % 4;
+	// 	offset += lengths[i];
+	// 	//kargs_offset += lengths[i];
+	// 	offset += num_nulls;
 		
 
-		/*Copy out the string before adding necessary null chars */
-		result = copyoutstr((const char *)&kargs[i], (userptr_t) (stkptr - offset), lengths[i], &actual);
-		if(result){
-			return result;
-		}
+	// 	/*Copy out the string before adding necessary null chars */
+	// 	result = copyoutstr((const char *)&kargs[i], (userptr_t) (stkptr - offset), lengths[i], &actual);
+	// 	if(result){
+	// 		return result;
+	// 	}
 
-		// kprintf("nullStr address is: %p \n", &nullStr);
-		// kprintf("nullStr value is: %c \n", nullStr);
-		for(size_t j=0; j<num_nulls; j++){
-			result = copyout(&nullStr, (userptr_t)(stkptr-offset+lengths[i]+j), 1); 
-			if(result){
-				return result;
-			}
-			lengths[i] += num_nulls;
-			// kprintf("stkptr is pointing to: %p", stkptr-offset+lengths[i]+j);
-		}
+	// 	// kprintf("nullStr address is: %p \n", &nullStr);
+	// 	// kprintf("nullStr value is: %c \n", nullStr);
+	// 	for(size_t j=0; j<num_nulls; j++){
+	// 		result = copyout(&nullStr, (userptr_t)(stkptr-offset+lengths[i]+j), 1); 
+	// 		if(result){
+	// 			return result;
+	// 		}
+	// 		lengths[i] += num_nulls;
+	// 		// kprintf("stkptr is pointing to: %p", stkptr-offset+lengths[i]+j);
+	// 	}
 
-		// kprintf("\n");
-		// kprintf("kargs[i] address is: %p \n", &kargs[i]);
-		// kprintf("Value of kargs[i]: %s \n", kargs[i]);
-		// kprintf("\n");
-		// kprintf("stkptr points to: %p", stkptr);
-		// kprintf("\n");
+	// 	// kprintf("\n");
+	// 	// kprintf("kargs[i] address is: %p \n", &kargs[i]);
+	// 	// kprintf("Value of kargs[i]: %s \n", kargs[i]);
+	// 	// kprintf("\n");
+	// 	// kprintf("stkptr points to: %p", stkptr);
+	// 	// kprintf("\n");
 
-	}
+	// }
 	
-	kprintf("Finished loading strings. Start loading pointers.\n");
+	// kprintf("Finished loading strings. Start loading pointers.\n");
 
-	//Create arg pointers and copy them out to userstack
-	*uargv_bytes = offset; //Need this to set argv pointer in enter_new_process
-	size_t total_stack_bytes = offset + (num_ptrs*4);
-	offset = 0;
-	for(size_t k=0; k<num_ptrs; k++){
-		offset += lengths[k];
-		userptr_t this_pointer = (userptr_t) (stkptr - offset); //Not positive this sets a userspace pointer
+	// //Create arg pointers and copy them out to userstack
+	// *uargv_bytes = offset; //Need this to set argv pointer in enter_new_process
+	// size_t total_stack_bytes = offset + (num_ptrs*4);
+	// offset = 0;
+	// for(size_t k=0; k<num_ptrs; k++){
+	// 	offset += lengths[k];
+	// 	userptr_t this_pointer = (userptr_t) (stkptr - offset); //Not positive this sets a userspace pointer
 
-		result = copyout(this_pointer,(userptr_t) (stkptr - total_stack_bytes + (4*k)), 4);
-		if(result){
-			return result;
-		}
-	}
-	//kprintf("stkptr points to %p \n", stkptr);
-	kprintf("Finished loading pointers. \n");
+	// 	result = copyout(this_pointer,(userptr_t) (stkptr - total_stack_bytes + (4*k)), 4);
+	// 	if(result){
+	// 		return result;
+	// 	}
+	// }
+	// //kprintf("stkptr points to %p \n", stkptr);
+	// kprintf("Finished loading pointers. \n");
 	return 0;
 }
+
 int
 count_str_size(char *str, size_t *length)
 {
@@ -413,7 +446,6 @@ sys_execv(const char *program, char **args, int32_t *retval)
 			return result;
 		}
 	
-		//kprintf("Kargs[%u]: %s \n", arg_num, &kargs[karg_size]);
 
 		karg_size += ret_length;
 		rem_space -= ret_length;
@@ -423,147 +455,86 @@ sys_execv(const char *program, char **args, int32_t *retval)
 			kargs[karg_size++] = '\0';
 		}
 	}
-	(void) lengths;
+
+	kprintf("Printing that spicy string\n");
+	size_t i;
+	for(i = 0; i < karg_size; i++) {
+		kprintf("%c", kargs[i]);
+	}
+	kprintf("\n");
+
+	/* All them hot spicy strings is here! */
 
 
-	// size_t i;
-	// for(i = 0; i < karg_size; i++)
- 	//   kprintf("%c", kargs[i]);
+	//Operations to load the executable into mem
+	struct addrspace *as;
+	struct vnode *v;
+	vaddr_t entrypoint, stackptr;
 
-/* All them hot spicy strings is here! */
+	/* Open the file. */
+	result = vfs_open(kprogram, O_RDONLY, 0, &v);
+	if (result) {
+		*retval = result;
+		return result;
+	}
 
-	// result = copyin((const_userptr_t) args, (void *) cur_head_of_args, 4);
-	// if(result){
-	// 	*retval = result;
-	// 	cleanup_double_ptr(cur_head_of_args,1);
-	// 	cleanup_double_ptr(kargs, 0);	//Nothing stored in kargs yet, so I'm pretty sure we can just call kfree once
-	// 	return result;
+ 	/* We should be a new process. */
+	// KASSERT(proc_getas() == NULL); 		//Currently failing. Not sure if should be passing for execv.
+
+ 	/* Create a new address space. */
+	as = as_create();
+	if (as == NULL) {
+		vfs_close(v);
+		*retval = ENOMEM;
+		return ENOMEM;
+	}
+
+	/* Switch to it and activate it. */
+	proc_setas(as);
+	as_activate();
+
+ 	/* Load the executable. */
+	result = load_elf(v, &entrypoint);
+	if (result) {
+		vfs_close(v);
+		*retval = result;
+		return result;
+	}
+
+	/* Done with the file now. */
+ 	vfs_close(v);
+
+	/* Define the user stack in the address space */
+	result = as_define_stack(as, &stackptr);
+	if (result) {
+		*retval = result;
+		return result;
+	}
+	kprintf("Stkptr after as_define_stack: %x \n", stackptr);		//Note: stkptr points to 0x80000000. Points 1 after highest stack addr.
+
+
+
+ 	//Copy arguments from kernel space to userpsace
+	result = build_user_stack(kargs, lengths, index, (userptr_t)stackptr, karg_size);
+	if(result) {
+		*retval = result;
+		return result;
+	}
+
+	stackptr -= (karg_size + (index*4));
+	// kfree(kargs);
+	// kfree(*cur_head_of_args);
+	// kfree(cur_head_of_args);
+	// for(size_t ptr = 0; ptr < index; ptr++) {
+	// 	kfree(karg_ptrs[ptr]);
 	// }
-
-	// while(*cur_head_of_args != NULL){
-		
-	// 	//Grab string from cur_head pointer and store it in kargs
-	// 	result = count_str_size(*cur_head_of_args, &str_lengths[index]);
-	// 	if(result){
-	// 		*retval = result;
-	// 		cleanup_double_ptr(cur_head_of_args,1);
-	// 		cleanup_double_ptr(kargs, 0);	//Nothing stored in kargs yet, so I'm pretty sure we can just call kfree
-	// 		return result;
-	// 	}
-
-	// 	char *this_arg_string = *cur_head_of_args;
-		
-
-	// 	kargs[index] = this_arg_string;
-
-	// 	num_bytes += str_lengths[index];
-	// 	result = check_arg_size(&num_bytes);
-	// 	if(result){
-	// 		*retval = result;
-	// 		cleanup_double_ptr(cur_head_of_args,1);
-	// 		cleanup_double_ptr(kargs, index+1);
-	// 		return result;
-	// 	}
-
-	// 	index++;
-
-	// 	//copyin next 4 bytes of arg pointer to check for validity
-	// 	result = copyin((const_userptr_t) args+(index*4), (void *) cur_head_of_args, 4);
-	// 	if(result){
-	// 		*retval = result;
-	// 		cleanup_double_ptr(cur_head_of_args,1);
-	// 		cleanup_double_ptr(kargs, index);
-	// 		return result;
-	// 	}
-	// }
-	
-
-// 	// /*Test to see that string arg storage was successful*/
-// 	// size_t offset = 0;	
-// 	// for(size_t i=0; i<index; i++){
-		
-// 	// 	kprintf("Here's a string: %s \n", kargs[offset]);	//have to mod to use lengths to travel kargs
-// 	// 	offset = offset + str_lengths[i];
-// 	// }
+	// kfree(karg_ptrs);
 
 
-// 	num_bytes += 4*index; //Adds bytes for all the arg pointers
-// 	result = check_arg_size(&num_bytes);
-// 	if(result){
-// 		*retval = result;
-// 		cleanup_double_ptr(cur_head_of_args,1);
-// 		cleanup_double_ptr(kargs, index);
-// 		return result;
-// 	}
+	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
+	enter_new_process(index, (userptr_t)stackptr, NULL, stackptr, entrypoint);
 
-// 	//Operations to load the executable into mem
-// 	struct addrspace *as;
-// 	struct vnode *v;
-// 	vaddr_t entrypoint, stackptr;
-
-// 	/* Open the file. */
-// 	result = vfs_open(kprogram, O_RDONLY, 0, &v);
-// 	if (result) {
-// 		*retval = result;
-// 		return result;
-// 	}
-
-// 	/* We should be a new process. */
-// //	KASSERT(proc_getas() == NULL); 		//Currently failing. Not sure if should be passing for execv.
-
-// 	/* Create a new address space. */
-// 	as = as_create();
-// 	if (as == NULL) {
-// 		vfs_close(v);
-// 		*retval = ENOMEM;
-// 		return ENOMEM;
-// 	}
-
-// 	/* Switch to it and activate it. */
-// 	proc_setas(as);
-// 	as_activate();
-
-// 	/* Load the executable. */
-// 	result = load_elf(v, &entrypoint);
-// 	if (result) {
-// 		vfs_close(v);
-// 		*retval = result;
-// 		return result;
-// 	}
-
-// 	/* Done with the file now. */
-// 	vfs_close(v);
-
-// 	/* Define the user stack in the address space */
-// 	result = as_define_stack(as, &stackptr);
-// 	if (result) {
-// 		*retval = result;
-// 		return result;
-// 	}
-// 	//kprintf("Stkptr after as_define_stack: %x \n", stackptr);		//Note: stkptr points to 0x80000000. Points 1 after highest stack addr.
-
-
-// 	//Copy arguments from kernel space to userpsace
-// 	size_t num_argv_bytes = 0;
-// 	result = build_user_stack(kargs, str_lengths, index, (userptr_t) stackptr, &num_argv_bytes);
-// 	if(result) {
-// 		*retval = result;
-// 		//free stuff up
-// 		return result;
-// 	}
-
-// 	userptr_t uargv_start = (userptr_t)(stackptr - num_argv_bytes);
-// 	(void)	uargv_start;
-// 	/* Clean up heap before entering new process */
-// 	cleanup_double_ptr(kargs, 0);
-// 	cleanup_double_ptr(cur_head_of_args,0);
-
-
-// 	// // //Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
-// 	// enter_new_process(index, uargv_start, NULL, stackptr, entrypoint);
-
-// 	//SHOULD NOT REACH HERE ON SUCCESS
-// 	*retval = EINVAL;
-// 	return -1;
-	return 0;
+ 	//SHOULD NOT REACH HERE ON SUCCESS
+	*retval = EINVAL;
+	return EINVAL;
 }
