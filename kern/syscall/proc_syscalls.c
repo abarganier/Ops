@@ -346,7 +346,8 @@ sys_execv(const char *program, char **args, int32_t *retval)
 
 		karg_size += ret_length;
 		rem_space -= ret_length;
-		size_t num_nulls = ret_length == 0 ? 0 : 4-(ret_length%4);
+
+		size_t num_nulls = (ret_length == 0 || ret_length == 4) ? 0 : 4-(ret_length%4);
 
 		lengths[arg_num] = ret_length+num_nulls;
 		for(size_t k=0; k<num_nulls; k++){
