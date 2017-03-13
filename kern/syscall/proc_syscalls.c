@@ -280,109 +280,24 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
-	int result;
-	char kprogram[PATH_MAX];
-	size_t prog_len = 0;
-
-	/* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
-	result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &prog_len); 
-	if(result){
-		*retval = result;
-		return result;
-	}
-
-	size_t index = 0;
-	char **cur_head_of_args = kmalloc(sizeof(char *));
-
-	/*Copy in 4 bytes of arg pointer to check validity*/
-	result = copyin((const_userptr_t) args,  cur_head_of_args, 4);
-	if(result){
-		*retval = result;
-		return result;
-	}
-	
-	while(*cur_head_of_args != NULL){
-
-		index++;
-		result = copyin((const_userptr_t) args+(index*4), cur_head_of_args, 4);
-		if(result){
-			*retval = result;
-			return result;
-		}
-	}
-
-	kprintf("Number of arguments is %d\n\n", index);
-
-	char ** karg_ptrs = kmalloc(sizeof(char *)*index);
-
-	for(size_t j=0; j<index; j++){
-		result = copyin((const_userptr_t) (args+j), &karg_ptrs[j], 4);
-		if(result){
-			kprintf("Copying pointers failed \n");
-			*retval = result;
-			//free stuff
-			return result;
-		}
-	}
-
- 	char *kargs = kmalloc(ARG_MAX-(4*index));
-
- 	size_t arg_num;
- 	size_t karg_size = 0;
- 	size_t ret_length = 0;
- 	size_t rem_space = ARG_MAX-(4*index);
- 	size_t lengths[index];
-
-	for(arg_num=0; arg_num<index; arg_num++){
-
-		result = copyinstr((const_userptr_t) karg_ptrs[arg_num], (char *)&kargs[karg_size], rem_space, &ret_length);
-		if(result){
-			*retval = result;
-			kprintf("Copying in argument string number %d failed!\n", arg_num);
-			return result;
-		}
-
-		karg_size += ret_length;
-		rem_space -= ret_length;
-
-		size_t num_nulls = (ret_length == 0 || ret_length%4 == 0) ? 0 : 4-(ret_length%4);
-
-		lengths[arg_num] = ret_length+num_nulls;
-		for(size_t k=0; k<num_nulls; k++){
-			kargs[karg_size++] = '\0';
-		}
-	}
-
-	kprintf("Printing string buffer\n\n");
-	size_t i;
-	kprintf("\"");
-	for(i = 0; i < karg_size; i++) {
-		if(kargs[i] == '\0') {
-			kprintf("\\0");
-		} else {
-			kprintf("%c", kargs[i]);
-		}
-	}
-	kprintf("\"\n\n");
-	kprintf("string buffer size including null terminators is %d\n\n", karg_size);
-
-	//Operations to load the executable into mem
+	(void) args;
 	struct addrspace *as;
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
+	int result;
 
 	/* Open the file. */
-	result = vfs_open(kprogram, O_RDONLY, 0, &v);
+	result = vfs_open((char *)program, O_RDONLY, 0, &v);
 	if (result) {
-		*retval = result;
+		*retval = result;		
 		return result;
 	}
 
- 	/* Create a new address space. */
+	/* Create a new address space. */
 	as = as_create();
 	if (as == NULL) {
 		vfs_close(v);
-		*retval = ENOMEM;
+		*retval = result;
 		return ENOMEM;
 	}
 
@@ -390,40 +305,181 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	proc_setas(as);
 	as_activate();
 
- 	/* Load the executable. */
+	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
 	if (result) {
+		/* p_addrspace will go away when curproc is destroyed */
 		vfs_close(v);
 		*retval = result;
 		return result;
 	}
 
 	/* Done with the file now. */
- 	vfs_close(v);
+	vfs_close(v);
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
 	if (result) {
+		/* p_addrspace will go away when curproc is destroyed */
 		*retval = result;
 		return result;
 	}
 
- 	//Copy arguments from kernel space to userpsace
-	result = build_user_stack(kargs, lengths, index, (userptr_t)stackptr, karg_size);
-	if(result) {
-		*retval = result;
-		return result;
-	}
+	/* Warp to user mode. */
+	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
+			  NULL /*userspace addr of environment*/,
+			  stackptr, entrypoint);
 
-	stackptr -= (karg_size + ((index+1)*4));
-
-
-	kprintf("Final stackptr value: %x\n", (unsigned int)stackptr);
-
-	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
-	enter_new_process(index, (userptr_t)stackptr, (userptr_t)NULL, stackptr, entrypoint);
-
- 	//SHOULD NOT REACH HERE ON SUCCESS
-	*retval = EINVAL;
+	/* enter_new_process does not return. */
+	panic("enter_new_process returned\n");
+	*retval = result;
 	return EINVAL;
+
+
+	// int result;
+	// char kprogram[PATH_MAX];
+	// size_t prog_len = 0;
+
+	// /* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
+	// result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &prog_len); 
+	// if(result){
+	// 	*retval = result;
+	// 	return result;
+	// }
+
+	// size_t index = 0;
+	// char **cur_head_of_args = kmalloc(sizeof(char *));
+
+	// /*Copy in 4 bytes of arg pointer to check validity*/
+	// result = copyin((const_userptr_t) args,  cur_head_of_args, 4);
+	// if(result){
+	// 	*retval = result;
+	// 	return result;
+	// }
+	
+	// while(*cur_head_of_args != NULL){
+
+	// 	index++;
+	// 	result = copyin((const_userptr_t) args+(index*4), cur_head_of_args, 4);
+	// 	if(result){
+	// 		*retval = result;
+	// 		return result;
+	// 	}
+	// }
+
+	// kprintf("Number of arguments is %d\n\n", index);
+
+	// char ** karg_ptrs = kmalloc(sizeof(char *)*index);
+
+	// for(size_t j=0; j<index; j++){
+	// 	result = copyin((const_userptr_t) (args+j), &karg_ptrs[j], 4);
+	// 	if(result){
+	// 		kprintf("Copying pointers failed \n");
+	// 		*retval = result;
+	// 		//free stuff
+	// 		return result;
+	// 	}
+	// }
+
+ // 	char *kargs = kmalloc(ARG_MAX-(4*index));
+
+ // 	size_t arg_num;
+ // 	size_t karg_size = 0;
+ // 	size_t ret_length = 0;
+ // 	size_t rem_space = ARG_MAX-(4*index);
+ // 	size_t lengths[index];
+
+	// for(arg_num=0; arg_num<index; arg_num++){
+
+	// 	result = copyinstr((const_userptr_t) karg_ptrs[arg_num], (char *)&kargs[karg_size], rem_space, &ret_length);
+	// 	if(result){
+	// 		*retval = result;
+	// 		kprintf("Copying in argument string number %d failed!\n", arg_num);
+	// 		return result;
+	// 	}
+
+	// 	karg_size += ret_length;
+	// 	rem_space -= ret_length;
+
+	// 	size_t num_nulls = (ret_length == 0 || ret_length%4 == 0) ? 0 : 4-(ret_length%4);
+
+	// 	lengths[arg_num] = ret_length+num_nulls;
+	// 	for(size_t k=0; k<num_nulls; k++){
+	// 		kargs[karg_size++] = '\0';
+	// 	}
+	// }
+
+	// kprintf("Printing string buffer\n\n");
+	// size_t i;
+	// kprintf("\"");
+	// for(i = 0; i < karg_size; i++) {
+	// 	if(kargs[i] == '\0') {
+	// 		kprintf("\\0");
+	// 	} else {
+	// 		kprintf("%c", kargs[i]);
+	// 	}
+	// }
+	// kprintf("\"\n\n");
+	// kprintf("string buffer size including null terminators is %d\n\n", karg_size);
+
+	// //Operations to load the executable into mem
+	// struct addrspace *as;
+	// struct vnode *v;
+	// vaddr_t entrypoint, stackptr;
+
+	// /* Open the file. */
+	// result = vfs_open(kprogram, O_RDONLY, 0, &v);
+	// if (result) {
+	// 	*retval = result;
+	// 	return result;
+	// }
+
+ // 	/* Create a new address space. */
+	// as = as_create();
+	// if (as == NULL) {
+	// 	vfs_close(v);
+	// 	*retval = ENOMEM;
+	// 	return ENOMEM;
+	// }
+
+	// /* Switch to it and activate it. */
+	// proc_setas(as);
+	// as_activate();
+
+ // 	/* Load the executable. */
+	// result = load_elf(v, &entrypoint);
+	// if (result) {
+	// 	vfs_close(v);
+	// 	*retval = result;
+	// 	return result;
+	// }
+
+	// /* Done with the file now. */
+ // 	vfs_close(v);
+
+	// /* Define the user stack in the address space */
+	// result = as_define_stack(as, &stackptr);
+	// if (result) {
+	// 	*retval = result;
+	// 	return result;
+	// }
+
+ // 	//Copy arguments from kernel space to userpsace
+	// result = build_user_stack(kargs, lengths, index, (userptr_t)stackptr, karg_size);
+	// if(result) {
+	// 	*retval = result;
+	// 	return result;
+	// }
+
+	// stackptr -= (karg_size + ((index+1)*4));
+
+
+	// kprintf("Final stackptr value: %x\n", (unsigned int)stackptr);
+
+	// //Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
+	// enter_new_process(index, (userptr_t)stackptr, (userptr_t)NULL, stackptr, entrypoint);
+
+ // 	//SHOULD NOT REACH HERE ON SUCCESS
+	// *retval = EINVAL;
+	// return EINVAL;
 }

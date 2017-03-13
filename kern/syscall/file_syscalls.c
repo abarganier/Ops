@@ -43,6 +43,7 @@
 #include <synch.h>
 #include <vnode.h>
 #include <copyinout.h>
+#include <kern/fcntl.h>
 
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
@@ -50,8 +51,24 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = EBADF;
 		return EBADF;
-	}	
+	}
 	
+	int fh_flags = curproc->filetable[fd]->fh_perm;
+	if(fh_flags == O_RDONLY || 
+		fh_flags == O_RDONLY+O_CREAT || 
+		fh_flags == O_RDONLY+O_EXCL || 
+		fh_flags == O_RDONLY+O_TRUNC || 
+		fh_flags == O_RDONLY+O_APPEND){
+		*retval = EBADF;
+		return EBADF;
+	}
+	
+	//Need this? This assumes flags should not be 3 (both WRONLY AND RDRW) or >=NOCTTY
+	if(fh_flags==3 || fh_flags >= O_NOCTTY){
+		*retval = EINVAL;
+		return EINVAL;
+	}
+
 	struct filehandle *fh = curproc->filetable[fd];	
 	struct iovec iov;
 	struct uio u;
@@ -85,14 +102,31 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 ssize_t
 sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 {
+
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = EBADF;
 		return EBADF;
 	}
 
+	int fh_flags = curproc->filetable[fd]->fh_perm;
+	if(fh_flags == O_WRONLY || 
+		fh_flags == O_WRONLY+O_CREAT || 
+		fh_flags == O_WRONLY+O_EXCL || 
+		fh_flags == O_WRONLY+O_TRUNC || 
+		fh_flags == O_WRONLY+O_APPEND){
+		*retval = EBADF;
+		return EBADF;
+	}
+
+	//Need this? This assumes flags should not be 3 (both WRONLY AND RDRW) or >=NOCTTY
+	if(fh_flags==3 || fh_flags >= O_NOCTTY){
+		*retval = EINVAL;
+		return EINVAL;
+	}
+
 	if(buf == NULL || buflen < 1) {
-		*retval = -1;
-		return 1;
+		*retval = EFAULT;
+		return EFAULT;
 	}
 
 	struct filehandle *fh = curproc->filetable[fd];
@@ -127,6 +161,12 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 int
 sys_open(const char *filename, int flags, int32_t * retval)
 {
+
+	if(flags==3 || flags >= O_NOCTTY){
+		*retval = EINVAL;
+		return EINVAL;
+	}
+
 	struct filehandle *new_fh;
 	int result;
 	char *filename_cpy = kmalloc(sizeof(filename));
@@ -136,6 +176,11 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	if (result) {
 		*retval = result;
 		return result;
+	}
+
+	if(filename_cpy[0] == '\0'){
+		*retval = EINVAL;
+		return EINVAL;
 	}
 
 	/* Still need to call vfs_open after filehandle_create() */
@@ -180,7 +225,7 @@ sys_close(int fd, int32_t * retval)
 {
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = EBADF;
-		return 1;
+		return EBADF;
 	}
 
 	struct filehandle *fh = curproc->filetable[fd];
