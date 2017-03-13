@@ -233,30 +233,34 @@ build_user_stack(char* kargs, size_t * lengths, size_t num_ptrs, userptr_t stkpt
 {
 
 	int result;
-	(void)lengths;
-	(void)num_ptrs;
-
 
 	userptr_t og_stkptr = stkptr;
-	kprintf("Value at stack ptr: %s\n", (char *)stkptr);
-	// copy out string
+
 	stkptr -= karg_size;
+
+	kprintf("stkptr - karg_size = %x\n", (unsigned int)stkptr);
+
 	result = copyout(kargs, stkptr, karg_size);
 	if(result) {
 		kprintf("Copyout of string values to user stack failed! Error: %d\n", result);
 		return result;
 	}
+
 	stkptr = og_stkptr;
 
 	char **argv = kmalloc(sizeof(char *)*(num_ptrs+1));
 
+	kprintf("Stkptr value before array build: %x\n", (unsigned int)stkptr);
+	
+	stkptr = stkptr - karg_size;
+	
 	for(size_t i = 0; i < num_ptrs; i++) {
-		stkptr -= lengths[i];
-		kprintf("argv[%d] being set to address %x. lengths[%d] = %d\n", i, (unsigned int)stkptr, i, lengths[i]);
 		argv[i] = (char *) stkptr;
+		stkptr += lengths[i];
 	}
 
 	argv[num_ptrs] = NULL;
+	
 	for(size_t i = 0; i < num_ptrs+1; i++) {
 		if(argv[i] == NULL) {
 			kprintf("argv[%d] is: NULL\n", i);
@@ -276,45 +280,6 @@ build_user_stack(char* kargs, size_t * lengths, size_t num_ptrs, userptr_t stkpt
 
 	return 0;
 }
-
-int
-count_str_size(char *str, size_t *length)
-{
-	//Assume valid arguments for now
-	KASSERT(str != NULL);
-	KASSERT(length != NULL);
-	size_t len=1;					//Assumption: str is not passed in null, so first char is non-null
-	while(str[len] != '\0'){
-
-		len++;
-		
-		if(len>PATH_MAX){ 		//Should be NAME_MAX or PATH_MAX?
-			return ENAMETOOLONG;
-		}
-	}
-	*length = len;
-	return 0;
-}
-
-int
-check_arg_size(size_t *num_bytes)
-{
-	if(*num_bytes>ARG_MAX){
-		return E2BIG;
-	}
-	return 0;
-}
-
-/* Exists in case there is some special way to clean up double ptrs */
-void
-cleanup_double_ptr(char** dbl_ptr, size_t size)
-{
-	for(size_t i=0; i<size; i++){
-		kfree(dbl_ptr[i]);
-	}
-	kfree(dbl_ptr);
-}
-
 
 int
 sys_execv(const char *program, char **args, int32_t *retval)
@@ -376,15 +341,15 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	//Set up *kargs to its max allowable size (ARG-MAX-(index*4)) && start counting num_bytes
 	//size_t num_bytes = 0;
  	char *kargs = kmalloc(ARG_MAX-(4*index)); //ARG_MAX size minus num_bytes needed for pointers
- 	size_t str_lengths[index]; //Sets up an array of size_t for logging the length of each string associated with index pointers
- 	(void) str_lengths;
-	
+
  	size_t arg_num;
  	size_t karg_size = 0;
  	size_t ret_length = 0;
  	size_t rem_space = ARG_MAX-(4*index);
  	size_t lengths[index];
+
 	kprintf("2nd value: %s \n", karg_ptrs[1]);
+
 	for(arg_num=0; arg_num<index; arg_num++){
 
 		result = copyinstr((const_userptr_t) karg_ptrs[arg_num], (char *)&kargs[karg_size], rem_space, &ret_length);
@@ -398,14 +363,15 @@ sys_execv(const char *program, char **args, int32_t *retval)
 
 		karg_size += ret_length;
 		rem_space -= ret_length;
-		kprintf("Length of arg %d copydin is: %d\n", arg_num, ret_length);
+		// kprintf("Length of arg %d copydin is: %d\n", arg_num, ret_length);
 		size_t num_nulls = ret_length == 0 ? 0 : 4-(ret_length%4);
-		kprintf("num_nulls for arg %d: %d\n", arg_num, num_nulls);
+		// kprintf("num_nulls for arg %d: %d\n", arg_num, num_nulls);
 		lengths[arg_num] = ret_length+num_nulls;
 		for(size_t k=0; k<num_nulls; k++){
 			kargs[karg_size++] = '\0';
 		}
 	}
+	
 	kprintf("Printing that spicy string\n");
 	size_t i;
 	for(i = 0; i < karg_size; i++) {
@@ -413,9 +379,6 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	}
 	kprintf("\n");
 	kprintf("karg_size is %d\n", karg_size);
-
-	/* All them hot spicy strings is here! */
-
 
 	//Operations to load the executable into mem
 	struct addrspace *as;
@@ -428,9 +391,6 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		*retval = result;
 		return result;
 	}
-
- 	/* We should be a new process. */
-	// KASSERT(proc_getas() == NULL); 		//Currently failing. Not sure if should be passing for execv.
 
  	/* Create a new address space. */
 	as = as_create();
@@ -461,9 +421,6 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		*retval = result;
 		return result;
 	}
-	kprintf("Stkptr after as_define_stack: %x \n", stackptr);		//Note: stkptr points to 0x80000000. Points 1 after highest stack addr.
-
-
 
  	//Copy arguments from kernel space to userpsace
 	result = build_user_stack(kargs, lengths, index, (userptr_t)stackptr, karg_size);
@@ -472,15 +429,7 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		return result;
 	}
 
-	stackptr -= (karg_size + (index*4));
-	// kfree(kargs);
-	// kfree(*cur_head_of_args);
-	// kfree(cur_head_of_args);
-	// for(size_t ptr = 0; ptr < index; ptr++) {
-	// 	kfree(karg_ptrs[ptr]);
-	// }
-	// kfree(karg_ptrs);
-
+	stackptr -= (karg_size + (index*4+1));
 
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
 	enter_new_process(index, (userptr_t)stackptr, NULL, stackptr, entrypoint);
