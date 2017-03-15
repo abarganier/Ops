@@ -237,7 +237,7 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 
 	stkptr -= karg_size;
 
-	// copy out big string
+	// copy out big spicy string
 	result = copyout(kargs, stkptr, karg_size);
 	if(result) {
 		kprintf("Copyout of string values to user stack failed! Error: %d\n", result);
@@ -246,12 +246,9 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 
 	stkptr = og_stkptr - karg_size - (4*(num_ptrs+1));
 
-	// allocate empty char * array
 	char **argv = kmalloc(sizeof(char *) * (num_ptrs+1));
 	argv[num_ptrs] = NULL;
 	
-	kprintf("Copying out argv array starting at address: %x\n\n", (unsigned int)stkptr);
-
 	result = copyout(argv, (userptr_t)stkptr, (4*(num_ptrs+1)));
 	if(result) {
 		kprintf("Copyout of argv array failed. Error: %d\n", result);
@@ -261,41 +258,20 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 	stkptr = og_stkptr - karg_size;
 	userptr_t argv_ptr = og_stkptr - karg_size - (4*(num_ptrs+1));
 
-	char ** karg_ptr_checks = kmalloc(sizeof(char *));
-
-	// Fill array with userspace addresses
-	size_t i;
-	for(i = 0; i < num_ptrs; i++) {
-
-		kprintf("Setting pointer argv[%d] at address %x to point to: %s at address %x\n\n", i, (unsigned int)argv_ptr, (char *)stkptr, (unsigned int)stkptr);
-
-		result = copyout((char *)stkptr, argv_ptr, 4);
-		if(result) {
-			kprintf("Copyout of argv_ptr # %d failed\n", i);
-			return result;
-		}
-
-		result = copyin((const_userptr_t)argv_ptr, karg_ptr_checks, 4);
-		if(result){
-			kprintf("Copying in argv pointer value to check validity failed\n");
-			return result;
-		}
-
-		kprintf("karg_ptr_checks value: %x\n", (unsigned int)karg_ptr_checks);
-
-		argv_ptr = (userptr_t) argv_ptr+4;
-		stkptr += lengths[i];
+	for(size_t arg_number = 0; arg_number < num_ptrs; arg_number++) {
+		argv[arg_number] = (char *)stkptr;
+		stkptr += lengths[arg_number];
 	}
 
-	result = copyin((const_userptr_t)argv_ptr, &karg_ptr_checks, 4);
-	if(result){
-		kprintf("Copying in argv pointer value to check validity failed\n");
-		return result;
+	stkptr = og_stkptr - karg_size;
+
+	result = copyout(argv, argv_ptr, 4*(num_ptrs+1));
+	if(result) {
+		kprintf("Copyout of argv failed!\n");
+		return 1;
 	}
-	kprintf("karg_ptr_checks value (should be the final null element): %x\n", (unsigned int)karg_ptr_checks);
 
-	kprintf("Finished copying out values to user stack\n");
-
+	kfree(argv);
 	return 0;
 }
 
@@ -303,7 +279,7 @@ int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
 	int result;
-	char kprogram[PATH_MAX];
+	char * kprogram = kmalloc(sizeof(char) * (PATH_MAX+NAME_MAX));
 	size_t prog_len = 0;
 
 	/* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
@@ -317,7 +293,7 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	char **cur_head_of_args = kmalloc(sizeof(char *));
 
 	/*Copy in 4 bytes of arg pointer to check validity*/
-	result = copyin((const_userptr_t) args,  cur_head_of_args, 4);
+	result = copyin((const_userptr_t)args, cur_head_of_args, 4);
 	if(result){
 		*retval = result;
 		return result;
@@ -332,8 +308,6 @@ sys_execv(const char *program, char **args, int32_t *retval)
 			return result;
 		}
 	}
-
-	kprintf("Number of arguments is %d\n\n", index);
 
 	char ** karg_ptrs = kmalloc(sizeof(char *)*index);
 
@@ -375,18 +349,18 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		}
 	}
 
-	kprintf("Printing string buffer\n\n");
-	size_t i;
-	kprintf("\"");
-	for(i = 0; i < karg_size; i++) {
-		if(kargs[i] == '\0') {
-			kprintf("\\0");
-		} else {
-			kprintf("%c", kargs[i]);
-		}
-	}
-	kprintf("\"\n\n");
-	kprintf("string buffer size including null terminators is %d\n\n", karg_size);
+	// kprintf("Printing string buffer\n\n");
+	// size_t i;
+	// kprintf("\"");
+	// for(i = 0; i < karg_size; i++) {
+	// 	if(kargs[i] == '\0') {
+	// 		kprintf("\\0");
+	// 	} else {
+	// 		kprintf("%c", kargs[i]);
+	// 	}
+	// }
+	// kprintf("\"\n\n");
+	// kprintf("string buffer size including null terminators is %d\n\n", karg_size);
 
 	//Operations to load the executable into mem
 	struct addrspace *as;
@@ -440,8 +414,9 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	stackptr -= (karg_size + ((index+1)*4));
 	userptr_t argv_ptr_copy = (userptr_t)stackptr;
 
-
-	kprintf("Final stackptr value: %x\n", (unsigned int)stackptr);
+	kfree(kargs);
+	kfree(kprogram);
+	// kprintf("Final stackptr value: %x\n", (unsigned int)stackptr);
 
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
 	enter_new_process(index, argv_ptr_copy, NULL, stackptr, entrypoint);
