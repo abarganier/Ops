@@ -56,7 +56,7 @@ vfs_getcurdir(struct vnode **ret)
 		*ret = curproc->p_cwd;
 	}
 	else {
-		kprintf("Failed because curproc's cwd is NULL\n");
+//		kprintf("Failed because curproc's cwd is NULL\n");
 		rv = ENOENT;
 	}
 	spinlock_release(&curproc->p_lock);

@@ -50,9 +50,13 @@ open_testfile(const char *string)
 
 	fd = open(TESTFILE, O_RDWR|O_CREAT|O_TRUNC, 0664);
 	if (fd<0) {
+//		printf("FD at CKP 0 is %d \n", fd);
+//		printf("CHECKPOINT 0\n");
 		report_warn("creating %s: failed", TESTFILE);
 		return -1;
 	}
+
+//	printf("CHECKPOINT 1\n");
 
 	if (string) {
 		len = strlen(string);
@@ -61,12 +65,14 @@ open_testfile(const char *string)
 			report_warn("write to %s failed", TESTFILE);
 			close(fd);
 			remove(TESTFILE);
+//			printf("CHECKPOINT 2\n");
 			return -1;
 		}
 		if ((unsigned)rv != len) {
 			report_warn("write to %s got short count", TESTFILE);
 			close(fd);
 			remove(TESTFILE);
+//			printf("CHECKPOINT 3\n");
 			return -1;
 		}
 		rv = lseek(fd, 0, SEEK_SET);
@@ -74,9 +80,11 @@ open_testfile(const char *string)
 			report_warn("rewind of %s failed", TESTFILE);
 			close(fd);
 			remove(TESTFILE);
+//			printf("CHECKPOINT 4\n");
 			return -1;
 		}
 	}
+//	printf("CHECKPOINT 5\n");
 	return fd;
 }
 

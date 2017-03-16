@@ -110,6 +110,7 @@ lseek_file_stdin(void)
 
 	fd = open_testfile(NULL);
 	if (fd<0) {
+//		printf("FAILED AFTER OPEN_TESTFILE!\n");
 		_exit(0);
 	}
 
@@ -133,6 +134,7 @@ lseek_file_stdin(void)
 		remove(TESTFILE);
 		_exit(1);
 	}
+	printf("MADE IT PAST DUP2 TO STDIN\n");
 	close(fd);
 
 	rv = write(STDIN_FILENO, slogan, len);
@@ -141,7 +143,7 @@ lseek_file_stdin(void)
 		remove(TESTFILE);
 		_exit(1);
 	}
-
+	
 	if ((unsigned)rv != len) {
 		report_warnx("write to %s (via stdin) got short count",
 			     TESTFILE);
@@ -149,17 +151,22 @@ lseek_file_stdin(void)
 		_exit(1);
 	}
 
+
 	/* blah */
 	report_skipped(&result);
+	printf("MADE IT PASSED REPORT_SKIPPED");
 
 	rv = lseek(STDIN_FILENO, 0, SEEK_SET);
 	report_begin("try 1: SEEK_SET");
 	result = report_check(rv, errno, 0);
 
+	printf("MADE IT PASSED FIRST LSEEK\n");
+
 	rv = lseek(STDIN_FILENO, 0, SEEK_END);
 	report_begin("try 2: SEEK_END");
 	result = report_check(rv, errno, 0);
 
+	printf("MADE IT PASSED 2nd LSEEK\n");
 	remove(TESTFILE);
 	_exit(0);
 }

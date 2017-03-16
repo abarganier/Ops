@@ -48,6 +48,26 @@
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 {
+	
+	if(buf == NULL){
+		*retval = -1;
+		return EFAULT;
+	}
+
+	//Error checking on buffer
+	if(buflen < 1) {
+		*retval = -1;
+		return EFAULT;
+	}
+
+	char *kbuf = kmalloc(buflen);
+	int result = copyin((const_userptr_t) buf, (void *)kbuf, buflen);
+	if(result){
+		kfree(kbuf);		
+		*retval = result;
+		return result;
+	}
+
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = EBADF;
 		return EBADF;
@@ -85,7 +105,7 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	u.uio_rw = UIO_WRITE;
 	u.uio_space = curproc->p_addrspace;
 
-	int result = VOP_WRITE(fh->fh_vnode, &u);
+	result = VOP_WRITE(fh->fh_vnode, &u);
 	if(result) {
 		*retval = result;
 		lock_release(fh->fh_lock);
@@ -102,9 +122,26 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 ssize_t
 sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 {
+	if(buf == NULL){
+		*retval = -1;
+		return EFAULT;
+	}
+
+	//Error checking on buffer
+	if(buflen < 1) {
+		*retval = -1;
+		return EFAULT;
+	}
+	char *kbuf = kmalloc(buflen);
+	int result = copyin((const_userptr_t) buf, (void *)kbuf, buflen);
+	if(result){
+		kfree(kbuf);
+		*retval = result;
+		return result;
+	}
 
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
-		*retval = EBADF;
+		*retval = -1;
 		return EBADF;
 	}
 
@@ -114,20 +151,18 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 		fh_flags == O_WRONLY+O_EXCL || 
 		fh_flags == O_WRONLY+O_TRUNC || 
 		fh_flags == O_WRONLY+O_APPEND){
-		*retval = EBADF;
+		*retval = -1;
 		return EBADF;
 	}
 
 	//Need this? This assumes flags should not be 3 (both WRONLY AND RDRW) or >=NOCTTY
 	if(fh_flags==3 || fh_flags >= O_NOCTTY){
-		*retval = EINVAL;
+		*retval = -1;
 		return EINVAL;
 	}
 
-	if(buf == NULL || buflen < 1) {
-		*retval = EFAULT;
-		return EFAULT;
-	}
+
+
 
 	struct filehandle *fh = curproc->filetable[fd];
 	struct iovec iov;
@@ -141,11 +176,11 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 	u.uio_iovcnt = 1; 
 	u.uio_resid = buflen;
 	u.uio_offset = fh->fh_offset_value;
-	u.uio_segflg = UIO_USERSPACE;
+	u.uio_segflg = UIO_SYSSPACE;
 	u.uio_rw = UIO_READ;
-	u.uio_space = curproc->p_addrspace;
+	u.uio_space = NULL;
 
-	int result = VOP_READ(fh->fh_vnode, &u);
+	result = VOP_READ(fh->fh_vnode, &u);
 	if(result) {
 		lock_release(fh->fh_lock);
 		*retval = result;
@@ -320,9 +355,11 @@ sys_chdir(const char * pathname, int32_t * retval)
 off_t 
 sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 {
-	if(fd < 0 || fd > 63 || pos < 0 || curproc->filetable[fd] == NULL) {
-		*retval = (off_t)EBADF;
-		return (off_t)EBADF;
+
+	//If fd is STDIN
+	if(fd == 0){
+		*retval = (off_t) ESPIPE;
+		return (off_t)ESPIPE;
 	}
 
 	int whencebuf = 0;
@@ -337,6 +374,14 @@ sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 		return (off_t)EINVAL;
 	}
 
+
+
+	if(fd < 1 || fd > 63 || curproc->filetable[fd] == NULL) {
+		*retval = (off_t)EBADF;
+		return (off_t)EBADF;
+	}
+
+
 	struct filehandle * fh = curproc->filetable[fd];
 	lock_acquire(fh->fh_lock);
 	if(!VOP_ISSEEKABLE(fh->fh_vnode)) {
@@ -345,16 +390,28 @@ sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 		return (off_t)ESPIPE;
 	}
 
+	off_t net_offset;
 	if(whencebuf == SEEK_SET) {
-		fh->fh_offset_value = pos;
-	} else if(whencebuf == SEEK_CUR) {
-		fh->fh_offset_value += pos;	
-	} else { // SEEK_END
+		//fh->fh_offset_value = pos;
+		net_offset = pos;
+	} 
+	else if(whencebuf == SEEK_CUR) {
+		//fh->fh_offset_value += pos;	
+		net_offset = fh->fh_offset_value + pos;
+	} 
+	else { // SEEK_END
 		struct stat st;
 		VOP_STAT(fh->fh_vnode, &st);
-		fh->fh_offset_value = st.st_size + pos;
+		//fh->fh_offset_value = st.st_size + pos;
+		net_offset = st.st_size + pos;
 	}
 
+	if(net_offset<0){
+		lock_release(fh->fh_lock);
+		*retval = (off_t) EINVAL;
+		return (off_t)EINVAL;
+	}
+	fh->fh_offset_value = net_offset;
 	*retval = fh->fh_offset_value;
 	lock_release(fh->fh_lock);
 

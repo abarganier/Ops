@@ -98,7 +98,7 @@ next_pid(void)
 	// 	lock_acquire(p_table->pt_lock);
 	// }
 
-	KASSERT(pid_counter < 256 && pid_counter >= 0);
+	//KASSERT(pid_counter < 256 && pid_counter >= 0);
 	pid_t pid;
 
 	if(pid_counter > 255) {

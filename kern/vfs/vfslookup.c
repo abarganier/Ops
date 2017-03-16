@@ -199,7 +199,7 @@ getdevice(char *path, char **subpath, struct vnode **startvn)
 
 	if (path[0]=='/') {
 		if (bootfs_vnode==NULL) {
-			kprintf("Failed at path[0]=='\'\n");
+//			kprintf("Failed at path[0]=='\'\n");
 			return ENOENT;
 		}
 		VOP_INCREF(bootfs_vnode);
@@ -210,7 +210,7 @@ getdevice(char *path, char **subpath, struct vnode **startvn)
 
 		result = vfs_getcurdir(&vn);
 		if (result) {
-			kprintf("Failed at vfs_getcurdir\n");
+//			kprintf("Failed at vfs_getcurdir\n");
 			return result;
 		}
 

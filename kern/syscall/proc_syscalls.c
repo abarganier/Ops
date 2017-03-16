@@ -81,12 +81,21 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	newproc->ppid = curproc->pid;
 
+	// for(size_t i=0; i<8; i++){
+	// 	kprintf("o_table[%u] = %x \n", i, (unsigned int)curproc->filetable[i]);
+	// }
+
+
 	err = filetable_copy(curproc, newproc);
 	if(err){
 		// proc_destroy(newproc);
 		*retval = -1;
 		return err;
 	}
+	
+	// for(size_t i=0; i<8; i++){
+	// 	kprintf("c_table[%u] = %x \n", i, (unsigned int)newproc->filetable[i]);
+	// }
 
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
