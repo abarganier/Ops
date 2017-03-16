@@ -229,7 +229,7 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	if(new_fh == NULL) {
 		*retval = -1;
 //		kprintf("Failed to create new fh! \n");
-		filehandle_destroy(new_fh);
+		//filehandle_destroy(new_fh);
 		return 1;
 	}
 
