@@ -271,13 +271,16 @@ sys_open(const char *filename, int flags, int32_t * retval)
 int 
 sys_close(int fd, int32_t * retval)
 {
+	// kprintf("In sys_close\n");
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
+		// kprintf("In sys_close, filetable[%d] is null, returning\n", fd);
 		*retval = EBADF;
 		return EBADF;
 	}
 
 	struct filehandle *fh = curproc->filetable[fd];
 	lock_acquire(fh->fh_lock);
+	// kprintf("In sys_close, deleting file handle for fd = %d\n", fd);
 	sys_close_helper(fh, fd); // releases lock
 	*retval = 0;
 	return 0;
@@ -305,8 +308,10 @@ sys_close_helper(struct filehandle * fh, int fd) {
 int
 sys_dup2(int fdold, int fdnew, int32_t * retval)
 {
+	// kprintf("In sys_dup2.\n");
 	if(fdold < 0 || fdold > 63 || 
-		fdnew < 0 || fdnew > 63 || 
+		fdnew < 0 || fdnew > 63 ||
+		fdold == fdnew || 
 		curproc->filetable[fdold] == NULL) 
 	{
 		*retval = EBADF;
@@ -316,9 +321,13 @@ sys_dup2(int fdold, int fdnew, int32_t * retval)
 	if(curproc->filetable[fdnew] != NULL) {
 		struct filehandle * fh = curproc->filetable[fdnew];
 		lock_acquire(fh->fh_lock);
+		// kprintf("filetable[%d] is not null. Destroying the filehandle\n", fdnew);
 		sys_close_helper(fh, fdnew); // releases lock
 	}
-
+	// kprintf("setting filetable[%d] = filetable[%d]\n", fdnew, fdold);
+	lock_acquire(curproc->filetable[fdold]->fh_lock);
+	curproc->filetable[fdold]->num_open_proc++;
+	lock_release(curproc->filetable[fdold]->fh_lock);
 	curproc->filetable[fdnew] = curproc->filetable[fdold];
 	*retval = fdnew;
 	return 0;
