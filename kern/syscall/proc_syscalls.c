@@ -81,30 +81,50 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	newproc->ppid = curproc->pid;
 
+
+	//Set p_cwd of new proc to that of parent proc
+	newproc->p_cwd = curproc->p_cwd;
+
+	// for(size_t i=0; i<8; i++){
+	// 	kprintf("o_table[%u] = %x \n", i, (unsigned int)curproc->filetable[i]);
+	// }
+
+
 	err = filetable_copy(curproc, newproc);
 	if(err){
-		// proc_destroy(newproc);
+//		proc_destroy(newproc);
 		*retval = -1;
 		return err;
 	}
 
+	// for(size_t i=0; i<8; i++){
+	// 	kprintf("c_table[%u] = %x \n", i, (unsigned int)newproc->filetable[i]);
+	// }
+
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
-		// proc_destroy(newproc); 
+//		proc_destroy(newproc); 
 		*retval = err;
 		return err;
 	}
-
 	*retval = newproc->pid;
 
 
 	child_tf = trapframe_copy(parent_tf);
+	if(child_tf == NULL){
+		kprintf("Child trap frame is null \n");
+//		kfree(child_tf);
+//		proc_destroy(newproc);
+		*retval = 1;
+		return 1;
+	}
 	
 
 	err = thread_fork("child", newproc, (void*)enter_forked_process, child_tf, (unsigned long)newproc->pid);
 	if(err) {
-		kfree(child_tf);
-		proc_destroy(newproc);
+//		kfree(child_tf);
+		kprintf("Failed thread_fork\n");
+//		proc_destroy(newproc);
 		*retval = err;
 		return err;
 	}
@@ -126,7 +146,7 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 
 	lock_acquire(p_table->pt_lock);
 
-	KASSERT(p_table->table[pid] != NULL);
+	//KASSERT(p_table->table[pid] != NULL);
 
 	if(pid < PID_MIN || p_table->table[pid] == NULL) {
 		lock_release(p_table->pt_lock);
