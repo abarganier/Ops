@@ -183,9 +183,12 @@ test(int nowait)
 	 * So...
 	 */
 	snprintf(filename, 32, "%s-%d.bin", FORKTEST_FILENAME_BASE, getpid());
+	printf("%s\n",filename);
 	int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC);
+
 	if(fd < 3) {
 		// 0, 1, 2 are stdin, stdout, stderr
+//		printf("fd is: %d \n",fd);
 		err(1, "Failed to open file to write data into\n");
 	}
 

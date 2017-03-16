@@ -243,7 +243,7 @@ wait_siblings_child(const char *semname)
 	 */
 	semfd = open(semname, O_RDONLY);
 	if (semfd < 0) {
-		report_warn("child process (pid %d) can't open %s",
+		report_warn("1. child process (pid %d) can't open %s",
 			 mypid, semname);
 	}
 	else {
@@ -255,7 +255,7 @@ wait_siblings_child(const char *semname)
 
 	fd = open(TESTFILE, O_RDONLY);
 	if (fd<0) {
-		report_warn("child process (pid %d) can't open %s",
+		report_warn("2. child process (pid %d) can't open %s",
 			    mypid, TESTFILE);
 		return FAILED;
 	}
@@ -268,13 +268,13 @@ wait_siblings_child(const char *semname)
 	do {
 		rv = lseek(fd, 0, SEEK_SET);
 		if (rv<0) {
-			report_warn("child process (pid %d) lseek error",
+			report_warn("1. child process (pid %d) lseek error",
 				    mypid);
 			return FAILED;
 		}
 		rv = read(fd, pids, sizeof(pids));
 		if (rv<0) {
-			report_warn("child process (pid %d) read error",
+			report_warn("2. child process (pid %d) read error",
 				    mypid);
 			return FAILED;
 		}

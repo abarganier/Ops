@@ -70,6 +70,7 @@ vfs_open(char *path, int openflags, mode_t mode, struct vnode **ret)
 
 		result = vfs_lookparent(path, &dir, name, sizeof(name));
 		if (result) {
+//			kprintf("Failed at vfs_lookparent\n");
 			return result;
 		}
 
@@ -78,10 +79,12 @@ vfs_open(char *path, int openflags, mode_t mode, struct vnode **ret)
 		VOP_DECREF(dir);
 	}
 	else {
+//		kprintf("Made it to vfs_lookup. If fails, after openflags&O_CREAT and vfs_lookup, it was vfs_lookup\n");
 		result = vfs_lookup(path, &vn);
 	}
 
 	if (result) {
+//		kprintf("Failed after openflags&O_CREAT and vfs_lookup\n");
 		return result;
 	}
 
@@ -90,17 +93,20 @@ vfs_open(char *path, int openflags, mode_t mode, struct vnode **ret)
 	result = VOP_EACHOPEN(vn, openflags);
 	if (result) {
 		VOP_DECREF(vn);
+//		kprintf("Failed at VOP_EACHOPEN \n");
 		return result;
 	}
 
 	if (openflags & O_TRUNC) {
 		if (canwrite==0) {
+//			kprintf("Failed at canwrite");
 			result = EINVAL;
 		}
 		else {
 			result = VOP_TRUNCATE(vn, 0);
 		}
 		if (result) {
+//			kprintf("Failed at VOP_TRUNCATE");
 			VOP_DECREF(vn);
 			return result;
 		}

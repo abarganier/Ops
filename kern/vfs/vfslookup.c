@@ -139,6 +139,7 @@ getdevice(char *path, char **subpath, struct vnode **startvn)
 	 * Entirely empty filenames aren't legal.
 	 */
 	if (path[0] == 0) {
+//		kprintf("Failed at path[0] check\n");
 		return EINVAL;
 	}
 
@@ -166,6 +167,7 @@ getdevice(char *path, char **subpath, struct vnode **startvn)
 		 * use the whole thing as the subpath.
 		 */
 		*subpath = path;
+//		kprintf("Entering vfs_getcurdir\n");
 		return vfs_getcurdir(startvn);
 	}
 
@@ -180,6 +182,7 @@ getdevice(char *path, char **subpath, struct vnode **startvn)
 
 		result = vfs_getroot(path, startvn);
 		if (result) {
+//			kprintf("Failed at vfs_getroot");
 			return result;
 		}
 
@@ -196,6 +199,7 @@ getdevice(char *path, char **subpath, struct vnode **startvn)
 
 	if (path[0]=='/') {
 		if (bootfs_vnode==NULL) {
+			kprintf("Failed at path[0]=='\'\n");
 			return ENOENT;
 		}
 		VOP_INCREF(bootfs_vnode);
@@ -206,6 +210,7 @@ getdevice(char *path, char **subpath, struct vnode **startvn)
 
 		result = vfs_getcurdir(&vn);
 		if (result) {
+			kprintf("Failed at vfs_getcurdir\n");
 			return result;
 		}
 
@@ -220,6 +225,7 @@ getdevice(char *path, char **subpath, struct vnode **startvn)
 		VOP_DECREF(vn);
 
 		if (result) {
+//			kprintf("Failed at FSOP_GETROOT\n");
 			return result;
 		}
 	}
@@ -243,6 +249,7 @@ int
 vfs_lookparent(char *path, struct vnode **retval,
 	       char *buf, size_t buflen)
 {
+
 	struct vnode *startvn;
 	int result;
 
@@ -251,6 +258,7 @@ vfs_lookparent(char *path, struct vnode **retval,
 	result = getdevice(path, &path, &startvn);
 	if (result) {
 		vfs_biglock_release();
+//		kprintf("Failed at getdevice\n");
 		return result;
 	}
 

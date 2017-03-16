@@ -94,9 +94,9 @@ proc_table_destroy(struct proc_table * table)
 pid_t
 next_pid(void)
 {
-	if(!is_kproc) {
-		lock_acquire(p_table->pt_lock);
-	}
+	// if(!is_kproc) {
+	// 	lock_acquire(p_table->pt_lock);
+	// }
 
 	KASSERT(pid_counter < 256 && pid_counter >= 0);
 	pid_t pid;
@@ -120,7 +120,7 @@ next_pid(void)
 
 	pid_counter++;
 	if(!is_kproc) {
-		lock_release(p_table->pt_lock);
+//		lock_release(p_table->pt_lock);
 	}
 	
 	return pid;
@@ -155,12 +155,14 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
-	/* Handles locking */
-	proc->pid = next_pid();
+
 
 	if(!is_kproc) {
 		lock_acquire(p_table->pt_lock);
 	}
+
+	/* Handles locking */ //CURRENTLY LOCK HANDLING IS COMMENTED OUT
+	proc->pid = next_pid();	//Move above if() statement if this doens't work out
 
 	KASSERT(p_table->table[proc->pid] == NULL);
 	p_table->table[proc->pid] = proc;
@@ -327,12 +329,14 @@ proc_create_runprogram(const char *name)
 	}
 	spinlock_release(&curproc->p_lock);
 
-	newproc->pid = next_pid();
+
 
 	if(!is_kproc) {
 		lock_acquire(p_table->pt_lock);
 	}
 
+	newproc->pid = next_pid(); //MOVE ABOUT IF() IF THIS DOESN'T WORK OUT
+ 
 	KASSERT(p_table->table[newproc->pid] == NULL);
 	p_table->table[newproc->pid] = newproc;
 	

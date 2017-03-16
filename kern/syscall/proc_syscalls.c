@@ -104,7 +104,7 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	err = thread_fork("child", newproc, (void*)enter_forked_process, child_tf, (unsigned long)newproc->pid);
 	if(err) {
 		kfree(child_tf);
-		proc_destroy(newproc);
+		//proc_destroy(newproc);
 		*retval = err;
 		return err;
 	}
@@ -126,7 +126,7 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 
 	lock_acquire(p_table->pt_lock);
 
-	KASSERT(p_table->table[pid] != NULL);
+	//KASSERT(p_table->table[pid] != NULL);
 
 	if(pid < PID_MIN || p_table->table[pid] == NULL) {
 		lock_release(p_table->pt_lock);

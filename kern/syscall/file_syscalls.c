@@ -162,37 +162,46 @@ int
 sys_open(const char *filename, int flags, int32_t * retval)
 {
 
+
 	if(flags==3 || flags >= O_NOCTTY){
+//		kprintf("Failed at flag args \n");
 		*retval = EINVAL;
 		return EINVAL;
 	}
 
 	struct filehandle *new_fh;
 	int result;
-	char *filename_cpy = kmalloc(sizeof(filename));
+	char *k_filename = kmalloc(sizeof(filename));
 	size_t size = 0;
+
 	/* Handles EFAULT. Add 1 to strlen for null terminator */
-	result = copyinstr((const_userptr_t)filename, (void*)filename_cpy, (size_t)100, &size);
+	result = copyinstr((const_userptr_t)filename, (void*)k_filename, (size_t)100, &size);
 	if (result) {
+//		kprintf("Failed at copyinstr \n");
 		*retval = result;
 		return result;
 	}
 
-	if(filename_cpy[0] == '\0'){
+	//filename_cpy[0] == '\0'
+	if(size<2){
+//		kprintf("Empty string arg \n");
 		*retval = EINVAL;
 		return EINVAL;
 	}
 
 	/* Still need to call vfs_open after filehandle_create() */
-	new_fh = filehandle_create(filename_cpy, flags);
+	new_fh = filehandle_create(k_filename, flags);
 	if(new_fh == NULL) {
 		*retval = -1;
+//		kprintf("Failed to create new fh! \n");
 		filehandle_destroy(new_fh);
 		return 1;
 	}
 
-	lock_acquire(new_fh->fh_lock);
+	//lock_acquire(new_fh->fh_lock); //THIS IS SHIT?
 
+	//No one should be able to mess with the file handles while I'm checking for a free space
+	
 	int i;
 	int free_index = 63;
 
@@ -203,11 +212,15 @@ sys_open(const char *filename, int flags, int32_t * retval)
 		}
 	}
 
+	//Make copy of pathname here and provide as argument to open
+	char *k_filename_copy = kstrdup(k_filename);
+
 	/* Handles EINVAL, ENXIO, ENODEV */
-	result = vfs_open(new_fh->fh_name, new_fh->fh_perm, 0, &new_fh->fh_vnode);
+	result = vfs_open(k_filename_copy, new_fh->fh_perm, 0, &new_fh->fh_vnode);
 	if(result){
+//		kprintf("Failed at vfs_open\n");
 		*retval = result;
-		lock_release(new_fh->fh_lock);
+//		lock_release(new_fh->fh_lock);
 		filehandle_destroy(new_fh);
 		return 1;
 	}
@@ -216,7 +229,7 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	curproc->filetable[free_index] = new_fh;
 	*retval = free_index;
 
-	lock_release(new_fh->fh_lock);
+//	lock_release(new_fh->fh_lock);
 	return 0;
 }
 
@@ -351,48 +364,39 @@ sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 int
 sys___getcwd(char *buf, size_t buflen, int32_t *retval){
 
-	//error check buff
-	if(buf == NULL){
-		*retval = EFAULT;
+	if(buflen<1 || buflen>PATH_MAX){
+		*retval = EINVAL;
 		return -1;
 	}
-
-	//Do I need to error check buflen?
-
-	//vfs_getcwd needs a uio object and returns an int
-	struct uio u;
-	struct iovec iov;
-
-
-	iov.iov_ubase = (userptr_t)buf;
-	iov.iov_len = buflen;
-	u.uio_iov = &iov;	
-	u.uio_iovcnt = 1; 
-	u.uio_resid = buflen;
-	u.uio_offset = 0;
-	u.uio_segflg = UIO_USERSPACE;
-	u.uio_rw = UIO_READ;
-	u.uio_space = curproc->p_addrspace;
-
-
 
 	int result;
+
+	char kbuf[buflen+1];
+	result = copyin((const_userptr_t) buf, &kbuf, buflen+1);
+	if(result){
+		*retval = result;
+		return -1;
+	}
+	
+	struct uio u;
+	struct iovec iov;
+	uio_kinit(&iov, &u, kbuf, buflen, 0, UIO_READ); //Might have to be buflen-1
+
+
 	result = vfs_getcwd(&u);
 	if(result){
-
 		*retval = result;
 		return -1;
 	}
-
-	//copyout to *buf in userspace
-	result = copyout(u.uio_iov->iov_ubase,(userptr_t) buf, buflen+1); //Need +1 for \0?
+	size_t size = 0;
+	result = copyoutstr((const char *)&kbuf, (userptr_t) buf, buflen, &size);
 	if(result){
 		*retval = result;
 		return -1;
 	}
 
-	//proc struct has a pointer proc_cwd. What do we do with this? When do we set this?
-	*retval = sizeof(buf);
+	*retval = size;
 	return 0;
+
 
 }
