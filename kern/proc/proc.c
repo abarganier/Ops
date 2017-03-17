@@ -51,6 +51,7 @@
 #include <synch.h>
 #include <vfs.h>
 #include <kern/unistd.h>
+#include <proc_syscalls.h>
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
@@ -335,6 +336,8 @@ proc_create_runprogram(const char *name)
 
 	KASSERT(p_table->table[newproc->pid] == NULL);
 	p_table->table[newproc->pid] = newproc;
+
+	exec_lock = lock_create("execv_lock");
 	
 	if(!is_kproc) {
 		lock_release(p_table->pt_lock);

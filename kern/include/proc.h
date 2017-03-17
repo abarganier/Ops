@@ -39,6 +39,7 @@
 #include <spinlock.h>
 #include <limits.h>
 #include <synch.h>
+#include <mips/trapframe.h>
 
 struct addrspace;
 struct thread;

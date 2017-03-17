@@ -53,6 +53,11 @@
 
 struct proc_table *p_table;
 
+static char *kargs;
+struct lock *exec_lock;
+static char *kprogram;
+static bool first_exec = true;
+
 void
 enter_forked_process(struct trapframe *tf, unsigned long nothing)
 {	
@@ -85,21 +90,12 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	//Set p_cwd of new proc to that of parent proc
 	newproc->p_cwd = curproc->p_cwd;
 
-	// for(size_t i=0; i<8; i++){
-	// 	kprintf("o_table[%u] = %x \n", i, (unsigned int)curproc->filetable[i]);
-	// }
-
-
 	err = filetable_copy(curproc, newproc);
 	if(err){
 //		proc_destroy(newproc);
 		*retval = -1;
 		return err;
 	}
-
-	// for(size_t i=0; i<8; i++){
-	// 	kprintf("c_table[%u] = %x \n", i, (unsigned int)newproc->filetable[i]);
-	// }
 
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
@@ -267,17 +263,13 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 
 	stkptr = og_stkptr - karg_size - (4*(num_ptrs+1));
 
-	char **argv = kmalloc(sizeof(char *) * (num_ptrs+1));
-	argv[num_ptrs] = NULL;
-	
-	result = copyout(argv, (userptr_t)stkptr, (4*(num_ptrs+1)));
-	if(result) {
-		kprintf("Copyout of argv array failed. Error: %d\n", result);
-		return result;
-	}
+	// char **argv = kmalloc(sizeof(char *) * (num_ptrs+1));
 	
 	stkptr = og_stkptr - karg_size;
 	userptr_t argv_ptr = og_stkptr - karg_size - (4*(num_ptrs+1));
+
+	char **argv = kmalloc(sizeof(char *) * num_ptrs+1);
+	argv[num_ptrs] = NULL;
 
 	for(size_t arg_number = 0; arg_number < num_ptrs; arg_number++) {
 		argv[arg_number] = (char *)stkptr;
@@ -299,65 +291,89 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
-	int result;
-	char * kprogram = kmalloc(sizeof(char) * (PATH_MAX+NAME_MAX));
-	size_t prog_len = 0;
+	if(first_exec) {
+		kargs = kmalloc(ARG_MAX);
+		KASSERT(kargs != NULL);
+		kprogram = kmalloc(PATH_MAX);
+		KASSERT(kprogram != NULL);
+		// exec_lock = lock_create("exec_lock"); // can create in proc_create_runprogram
+		first_exec = false;
+	}
+	lock_acquire(exec_lock);
+	bzero(kargs, ARG_MAX);
+	bzero(kprogram, PATH_MAX);
+	// kprintf("Args[0]: %s\n", *args);
+	size_t result;
+	// char * kprogram = kmalloc(sizeof(char) * (PATH_MAX+NAME_MAX));
 
 	/* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
-	result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &prog_len); 
+	result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &result); 
 	if(result){
+		lock_release(exec_lock);
 		*retval = result;
 		return result;
 	}
 
 	size_t index = 0;
-	char **cur_head_of_args = kmalloc(sizeof(char *));
+
+	char *cur_head_of_args;
 
 	/*Copy in 4 bytes of arg pointer to check validity*/
-	result = copyin((const_userptr_t)args, cur_head_of_args, 4);
+	result = copyin((const_userptr_t)args, &cur_head_of_args, 4);
 	if(result){
+		lock_release(exec_lock);
 		*retval = result;
 		return result;
 	}
 	
-	while(*cur_head_of_args != NULL){
+	while(cur_head_of_args != NULL){
 
 		index++;
-		result = copyin((const_userptr_t) args+(index*4), cur_head_of_args, 4);
+		result = copyin((const_userptr_t) args+(index*4), &cur_head_of_args, 4);
 		if(result){
+			lock_release(exec_lock);
 			*retval = result;
 			return result;
 		}
 	}
 
-	char ** karg_ptrs = kmalloc(sizeof(char *)*index);
+	char ** karg_ptrs = kmalloc(sizeof(char *) * index);
+	if(karg_ptrs == NULL) {
+		*retval = ENOMEM;
+		return ENOMEM;
+	}
 
 	for(size_t j=0; j<index; j++){
 		result = copyin((const_userptr_t) (args+j), &karg_ptrs[j], 4);
 		if(result){
+			lock_release(exec_lock);
 			kprintf("Copying pointers failed \n");
+			kfree(karg_ptrs);
 			*retval = result;
 			//free stuff
 			return result;
 		}
 	}
 
- 	char *kargs = kmalloc(ARG_MAX-(4*index));
+ 	// char *kargs = kmalloc(ARG_MAX-(4*index));
 
- 	size_t arg_num;
  	size_t karg_size = 0;
  	size_t ret_length = 0;
  	size_t rem_space = ARG_MAX-(4*index);
- 	size_t lengths[index];
+ 	size_t *lengths = kmalloc(sizeof(size_t) * index); 
 
-	for(arg_num=0; arg_num<index; arg_num++){
+ 	// kprintf("Copying in string. Number of arguwments is %d\n", index);
+
+	for(size_t arg_num=0; arg_num<index; arg_num++){
 
 		result = copyinstr((const_userptr_t) karg_ptrs[arg_num], (char *)&kargs[karg_size], rem_space, &ret_length);
 		if(result){
+			lock_release(exec_lock);
 			*retval = result;
 			kprintf("Copying in argument string number %d failed!\n", arg_num);
 			return result;
 		}
+		// kprintf("\narg #%d length: %d\n\n", arg_num, ret_length);
 
 		karg_size += ret_length;
 		rem_space -= ret_length;
@@ -391,6 +407,9 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	/* Open the file. */
 	result = vfs_open(kprogram, O_RDONLY, 0, &v);
 	if (result) {
+		lock_release(exec_lock);
+		kfree(karg_ptrs);
+		kfree(lengths);
 		*retval = result;
 		return result;
 	}
@@ -398,19 +417,28 @@ sys_execv(const char *program, char **args, int32_t *retval)
  	/* Create a new address space. */
 	as = as_create();
 	if (as == NULL) {
+		lock_release(exec_lock);
 		vfs_close(v);
+		kfree(karg_ptrs);
+		kfree(lengths);
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
 
 	/* Switch to it and activate it. */
-	proc_setas(as);
+	struct addrspace *old_as;
+	old_as = proc_setas(as);
 	as_activate();
 
  	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
 	if (result) {
+		lock_release(exec_lock);
 		vfs_close(v);
+		proc_setas(old_as);
+		as_activate();
+		kfree(karg_ptrs);
+		kfree(lengths);
 		*retval = result;
 		return result;
 	}
@@ -421,6 +449,11 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
 	if (result) {
+		lock_release(exec_lock);
+		proc_setas(old_as);
+		as_activate();
+		kfree(karg_ptrs);
+		kfree(lengths);
 		*retval = result;
 		return result;
 	}
@@ -428,6 +461,11 @@ sys_execv(const char *program, char **args, int32_t *retval)
  	//Copy arguments from kernel space to userpsace
 	result = build_user_stack(kargs, lengths, index, (userptr_t)stackptr, karg_size);
 	if(result) {
+		lock_release(exec_lock);
+		proc_setas(old_as);
+		as_activate();
+		kfree(karg_ptrs);
+		kfree(lengths);
 		*retval = result;
 		return result;
 	}
@@ -435,12 +473,19 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	stackptr -= (karg_size + ((index+1)*4));
 	userptr_t argv_ptr_copy = (userptr_t)stackptr;
 
-	kfree(kargs);
-	kfree(kprogram);
+	// kfree(kargs);
+	// kfree(kprogram);
+	kfree(karg_ptrs);
+	kfree(lengths);
 	// kprintf("Final stackptr value: %x\n", (unsigned int)stackptr);
+
+	lock_release(exec_lock);
 
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
 	enter_new_process(index, argv_ptr_copy, NULL, stackptr, entrypoint);
+
+	proc_setas(old_as);
+	as_activate();
 
  	//SHOULD NOT REACH HERE ON SUCCESS
 	*retval = EINVAL;
