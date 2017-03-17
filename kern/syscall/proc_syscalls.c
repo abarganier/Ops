@@ -96,7 +96,8 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		*retval = -1;
 		return err;
 	}
-
+	// kprintf("post fork refcount for STDIN = %d\n", curproc->filetable[0]->num_open_proc);
+	// kprintf("post fork refcount for STDOUT = %d\n", curproc->filetable[1]->num_open_proc);
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
 //		proc_destroy(newproc); 

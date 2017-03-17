@@ -504,7 +504,7 @@ filehandle_create(const char *name, int fh_perm)
 
 	filehandle->fh_perm = fh_perm;
 	filehandle->fh_offset_value = 0;
-	filehandle->num_open_proc = 0;
+	filehandle->num_open_proc = 1;
 
 	filehandle->fh_lock = lock_create("file_handle_lock");
 	if(filehandle->fh_lock == NULL){
