@@ -96,8 +96,7 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		*retval = -1;
 		return err;
 	}
-	// kprintf("post fork refcount for STDIN = %d\n", curproc->filetable[0]->num_open_proc);
-	// kprintf("post fork refcount for STDOUT = %d\n", curproc->filetable[1]->num_open_proc);
+
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
 	if(err){
 //		proc_destroy(newproc); 
@@ -262,10 +261,6 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 		return result;
 	}
 
-	stkptr = og_stkptr - karg_size - (4*(num_ptrs+1));
-
-	// char **argv = kmalloc(sizeof(char *) * (num_ptrs+1));
-	
 	stkptr = og_stkptr - karg_size;
 	userptr_t argv_ptr = og_stkptr - karg_size - (4*(num_ptrs+1));
 
@@ -297,15 +292,12 @@ sys_execv(const char *program, char **args, int32_t *retval)
 		KASSERT(kargs != NULL);
 		kprogram = kmalloc(PATH_MAX);
 		KASSERT(kprogram != NULL);
-		// exec_lock = lock_create("exec_lock"); // can create in proc_create_runprogram
 		first_exec = false;
 	}
 	lock_acquire(exec_lock);
 	bzero(kargs, ARG_MAX);
 	bzero(kprogram, PATH_MAX);
-	// kprintf("Args[0]: %s\n", *args);
 	size_t result;
-	// char * kprogram = kmalloc(sizeof(char) * (PATH_MAX+NAME_MAX));
 
 	/* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
 	result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &result); 
@@ -351,19 +343,14 @@ sys_execv(const char *program, char **args, int32_t *retval)
 			kprintf("Copying pointers failed \n");
 			kfree(karg_ptrs);
 			*retval = result;
-			//free stuff
 			return result;
 		}
 	}
-
- 	// char *kargs = kmalloc(ARG_MAX-(4*index));
 
  	size_t karg_size = 0;
  	size_t ret_length = 0;
  	size_t rem_space = ARG_MAX-(4*index);
  	size_t *lengths = kmalloc(sizeof(size_t) * index); 
-
- 	// kprintf("Copying in string. Number of arguwments is %d\n", index);
 
 	for(size_t arg_num=0; arg_num<index; arg_num++){
 
@@ -374,7 +361,6 @@ sys_execv(const char *program, char **args, int32_t *retval)
 			kprintf("Copying in argument string number %d failed!\n", arg_num);
 			return result;
 		}
-		// kprintf("\narg #%d length: %d\n\n", arg_num, ret_length);
 
 		karg_size += ret_length;
 		rem_space -= ret_length;
@@ -474,11 +460,8 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	stackptr -= (karg_size + ((index+1)*4));
 	userptr_t argv_ptr_copy = (userptr_t)stackptr;
 
-	// kfree(kargs);
-	// kfree(kprogram);
 	kfree(karg_ptrs);
 	kfree(lengths);
-	// kprintf("Final stackptr value: %x\n", (unsigned int)stackptr);
 
 	lock_release(exec_lock);
 

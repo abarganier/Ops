@@ -48,7 +48,6 @@
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 {
-	// kprintf("sys_write: fd = %d\n", fd);
 	if(buf == NULL){
 		*retval = -1;
 		return EFAULT;
@@ -88,7 +87,6 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 		return EBADF;
 	}
 	
-	//Need this? This assumes flags should not be 3 (both WRONLY AND RDRW) or >=NOCTTY
 	if(fh_flags==3 || fh_flags >= O_NOCTTY){
 		*retval = EINVAL;
 		return EINVAL;
@@ -132,7 +130,6 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 		return EFAULT;
 	}
 
-	//Error checking on buffer
 	if(buflen < 1) {
 		*retval = -1;
 		return EFAULT;
@@ -166,7 +163,6 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 		return EBADF;
 	}
 
-	//Need this? This assumes flags should not be 3 (both WRONLY AND RDRW) or >=NOCTTY
 	if(fh_flags==3 || fh_flags >= O_NOCTTY){
 		*retval = -1;
 		return EINVAL;
@@ -205,8 +201,6 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 int
 sys_open(const char *filename, int flags, int32_t * retval)
 {
-
-
 	if(flags==3 || flags >= O_NOCTTY){
 		*retval = EINVAL;
 		return EINVAL;
@@ -224,9 +218,7 @@ sys_open(const char *filename, int flags, int32_t * retval)
 		return result;
 	}
 
-	//filename_cpy[0] == '\0'
 	if(size<2){
-//		kprintf("Empty string arg \n");
 		*retval = EINVAL;
 		return EINVAL;
 	}
@@ -238,10 +230,7 @@ sys_open(const char *filename, int flags, int32_t * retval)
 		return 1;
 	}
 
-	//lock_acquire(new_fh->fh_lock); //THIS IS SHIT?
-
 	//No one should be able to mess with the file handles while I'm checking for a free space
-	
 	int i;
 	int free_index = 63;
 
@@ -259,7 +248,6 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	result = vfs_open(k_filename_copy, new_fh->fh_perm, 0, &new_fh->fh_vnode);
 	if(result){
 		*retval = result;
-		// kprintf("Open: Calling filehandle destory on fd: %d\n", free_index);
 		filehandle_destroy(new_fh);
 		return result;
 	}
@@ -268,23 +256,19 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	curproc->filetable[free_index] = new_fh;
 	*retval = free_index;
 
-//	lock_release(new_fh->fh_lock);
 	return 0;
 }
 
 int 
 sys_close(int fd, int32_t * retval)
 {
-	// kprintf("In sys_close\n");
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
-		// kprintf("In sys_close, filetable[%d] is null, returning\n", fd);
 		*retval = EBADF;
 		return EBADF;
 	}
 
 	struct filehandle *fh = curproc->filetable[fd];
 	lock_acquire(fh->fh_lock);
-	// kprintf("In sys_close, deleting file handle for fd = %d\n", fd);
 	sys_close_helper(fh, fd); // releases lock
 	*retval = 0;
 	return 0;
@@ -298,12 +282,9 @@ sys_close_helper(struct filehandle * fh, int fd) {
 	if(fh->num_open_proc < 1) {
 		// vfs_close cannot fail. See vfspath.c:119 for details.
 		vfs_close(fh->fh_vnode);
-		
 		curproc->filetable[fd] = NULL;
 		lock_release(fh->fh_lock);
-		// kprintf("Close: Calling filehandle destory on fd: %d\n", fd);
 		filehandle_destroy(fh);
-
 	} else {
 		curproc->filetable[fd] = NULL;
 		lock_release(fh->fh_lock);
@@ -313,9 +294,6 @@ sys_close_helper(struct filehandle * fh, int fd) {
 int
 sys_dup2(int fdold, int fdnew, int32_t * retval)
 {
-// 	kprintf("Entering dup2 with fdold = %d, fdnew = %d\n", fdold, fdnew);
-// 	kprintf("refcount for STDIN = %d\n", curproc->filetable[0]->num_open_proc);
-// 	kprintf("refcount for STDOUT = %d\n", curproc->filetable[1]->num_open_proc);
 	if(fdold < 0 || fdold > 63 || 
 		fdnew < 0 || fdnew > 63 ||
 		fdold == fdnew || 
@@ -342,7 +320,6 @@ sys_dup2(int fdold, int fdnew, int32_t * retval)
 			vfs_close(fh_new->fh_vnode);
 			curproc->filetable[fdnew] = NULL;
 			lock_release(fh_new->fh_lock);
-			// kprintf("Dup2: Calling filehandle destory on fd: %d\n", fdnew);
 			filehandle_destroy(fh_new);
 		} else {
 			curproc->filetable[fdnew] = NULL;
@@ -353,8 +330,8 @@ sys_dup2(int fdold, int fdnew, int32_t * retval)
 	curproc->filetable[fdold]->num_open_proc++;
 	curproc->filetable[fdnew] = curproc->filetable[fdold];
 	lock_release(curproc->filetable[fdold]->fh_lock);
+	
 	*retval = fdnew;
-	// kprintf("Leaving dup2\n");
 	return 0;
 }
 
@@ -389,7 +366,6 @@ sys_chdir(const char * pathname, int32_t * retval)
 off_t 
 sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 {
-
 	//If fd is STDIN
 	if(fd == 0){
 		*retval = (off_t) ESPIPE;
@@ -426,17 +402,14 @@ sys_lseek(int fd, off_t pos, const void * whence, off_t * retval)
 
 	off_t net_offset;
 	if(whencebuf == SEEK_SET) {
-		//fh->fh_offset_value = pos;
 		net_offset = pos;
 	} 
 	else if(whencebuf == SEEK_CUR) {
-		//fh->fh_offset_value += pos;	
 		net_offset = fh->fh_offset_value + pos;
 	} 
 	else { // SEEK_END
 		struct stat st;
 		VOP_STAT(fh->fh_vnode, &st);
-		//fh->fh_offset_value = st.st_size + pos;
 		net_offset = st.st_size + pos;
 	}
 
@@ -488,6 +461,4 @@ sys___getcwd(char *buf, size_t buflen, int32_t *retval){
 
 	*retval = size;
 	return 0;
-
-
 }

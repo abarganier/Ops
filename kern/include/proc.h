@@ -111,7 +111,8 @@ struct proc {
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 
-	/* add more material here as needed */
+	/* Since we have single threaded processes, no need to lock */
+	/* Something to keep in mind, though! */
 	struct filehandle* filetable[64];
 };
 
