@@ -39,6 +39,8 @@
 #include <vm.h>
 #include <mainbus.h>
 #include <syscall.h>
+#include <proc.h>
+#include <kern/wait.h>
 
 
 /* in exception-*.S */
@@ -108,6 +110,11 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 		break;
 	}
 
+	p_table->table[curproc->pid] = NULL;
+	curproc->exited = true;
+	curproc->exit_status = _MKWAIT_EXIT(code);
+	V(&curproc->exit_sem);
+	thread_exit();
 	/*
 	 * You will probably want to change this.
 	 */

@@ -48,7 +48,7 @@
 ssize_t
 sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 {
-	
+	// kprintf("sys_write: fd = %d\n", fd);
 	if(buf == NULL){
 		*retval = -1;
 		return EFAULT;
@@ -61,6 +61,11 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	}
 
 	char *kbuf = kmalloc(buflen);
+	if(kbuf == NULL) {
+		*retval = ENOMEM;
+		return ENOMEM;
+	} 
+
 	int result = copyin((const_userptr_t) buf, (void *)kbuf, buflen);
 	if(result){
 		kfree(kbuf);		
@@ -132,8 +137,14 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 		*retval = -1;
 		return EFAULT;
 	}
+
 	char *kbuf = kmalloc(buflen);
-	int result = copyin((const_userptr_t) buf, (void *)kbuf, buflen);
+	if(kbuf == NULL) {
+		*retval = ENOMEM;
+		return ENOMEM;
+	}
+
+	int result = copyin((const_userptr_t)buf, (void *)kbuf, buflen);
 	if(result){
 		kfree(kbuf);
 		*retval = result;
@@ -161,9 +172,6 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 		return EINVAL;
 	}
 
-
-
-
 	struct filehandle *fh = curproc->filetable[fd];
 	struct iovec iov;
 	struct uio u;
@@ -186,10 +194,11 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 		*retval = result;
 		return result;
 	}
+
 	fh->fh_offset_value = u.uio_offset;
 	lock_release(fh->fh_lock);
-	*retval = buflen - u.uio_resid;
 
+	*retval = buflen - u.uio_resid;
 	return 0;
 }
 
@@ -199,7 +208,6 @@ sys_open(const char *filename, int flags, int32_t * retval)
 
 
 	if(flags==3 || flags >= O_NOCTTY){
-//		kprintf("Failed at flag args \n");
 		*retval = EINVAL;
 		return EINVAL;
 	}
@@ -212,7 +220,6 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	/* Handles EFAULT. Add 1 to strlen for null terminator */
 	result = copyinstr((const_userptr_t)filename, (void*)k_filename, (size_t)100, &size);
 	if (result) {
-//		kprintf("Failed at copyinstr \n");
 		*retval = result;
 		return result;
 	}
@@ -228,8 +235,6 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	new_fh = filehandle_create(k_filename, flags);
 	if(new_fh == NULL) {
 		*retval = -1;
-//		kprintf("Failed to create new fh! \n");
-		//filehandle_destroy(new_fh);
 		return 1;
 	}
 
@@ -253,11 +258,10 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	/* Handles EINVAL, ENXIO, ENODEV */
 	result = vfs_open(k_filename_copy, new_fh->fh_perm, 0, &new_fh->fh_vnode);
 	if(result){
-//		kprintf("Failed at vfs_open\n");
 		*retval = result;
-//		lock_release(new_fh->fh_lock);
+		// kprintf("Open: Calling filehandle destory on fd: %d\n", free_index);
 		filehandle_destroy(new_fh);
-		return 1;
+		return result;
 	}
 
 	new_fh->num_open_proc++;
@@ -271,13 +275,16 @@ sys_open(const char *filename, int flags, int32_t * retval)
 int 
 sys_close(int fd, int32_t * retval)
 {
+	// kprintf("In sys_close\n");
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
+		// kprintf("In sys_close, filetable[%d] is null, returning\n", fd);
 		*retval = EBADF;
 		return EBADF;
 	}
 
 	struct filehandle *fh = curproc->filetable[fd];
 	lock_acquire(fh->fh_lock);
+	// kprintf("In sys_close, deleting file handle for fd = %d\n", fd);
 	sys_close_helper(fh, fd); // releases lock
 	*retval = 0;
 	return 0;
@@ -294,6 +301,7 @@ sys_close_helper(struct filehandle * fh, int fd) {
 		
 		curproc->filetable[fd] = NULL;
 		lock_release(fh->fh_lock);
+		// kprintf("Close: Calling filehandle destory on fd: %d\n", fd);
 		filehandle_destroy(fh);
 
 	} else {
@@ -305,22 +313,48 @@ sys_close_helper(struct filehandle * fh, int fd) {
 int
 sys_dup2(int fdold, int fdnew, int32_t * retval)
 {
+// 	kprintf("Entering dup2 with fdold = %d, fdnew = %d\n", fdold, fdnew);
+// 	kprintf("refcount for STDIN = %d\n", curproc->filetable[0]->num_open_proc);
+// 	kprintf("refcount for STDOUT = %d\n", curproc->filetable[1]->num_open_proc);
 	if(fdold < 0 || fdold > 63 || 
-		fdnew < 0 || fdnew > 63 || 
+		fdnew < 0 || fdnew > 63 ||
+		fdold == fdnew || 
 		curproc->filetable[fdold] == NULL) 
 	{
 		*retval = EBADF;
 		return EBADF;
 	}
 
+	lock_acquire(curproc->filetable[fdold]->fh_lock);
+
 	if(curproc->filetable[fdnew] != NULL) {
-		struct filehandle * fh = curproc->filetable[fdnew];
-		lock_acquire(fh->fh_lock);
-		sys_close_helper(fh, fdnew); // releases lock
+
+		struct filehandle *fh_new = curproc->filetable[fdnew];
+
+		lock_acquire(fh_new->fh_lock);
+
+		KASSERT(fh_new != NULL);
+
+		fh_new->num_open_proc--;
+
+		if(fh_new->num_open_proc < 1) {
+			// vfs_close cannot fail. See vfspath.c:119 for details.
+			vfs_close(fh_new->fh_vnode);
+			curproc->filetable[fdnew] = NULL;
+			lock_release(fh_new->fh_lock);
+			// kprintf("Dup2: Calling filehandle destory on fd: %d\n", fdnew);
+			filehandle_destroy(fh_new);
+		} else {
+			curproc->filetable[fdnew] = NULL;
+			lock_release(fh_new->fh_lock);
+		}
 	}
 
+	curproc->filetable[fdold]->num_open_proc++;
 	curproc->filetable[fdnew] = curproc->filetable[fdold];
+	lock_release(curproc->filetable[fdold]->fh_lock);
 	*retval = fdnew;
+	// kprintf("Leaving dup2\n");
 	return 0;
 }
 
