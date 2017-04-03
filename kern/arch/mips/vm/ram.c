@@ -38,7 +38,7 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 static paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
 
-paddr_t coremap_paddr;		//Marks starting address of coremap
+paddr_t coremap_paddr;		//Marks starting address of coremap. Should never change after first assignment.
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.
@@ -69,7 +69,13 @@ ram_bootstrap(void)
 	 * Convert to physical address.
 	 */
 	firstpaddr = firstfree - MIPS_KSEG0;
+
+	coremap_paddr = firstpaddr;
+
+	firstpaddr = firstpaddr + ((ramsize / 4096)*8);
+
 	
+
 	kprintf("%uk physical memory available\n",
 		(lastpaddr-firstpaddr)/1024);
 }

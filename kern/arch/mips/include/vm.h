@@ -83,19 +83,18 @@
  */
 #define USERSTACK     USERSPACETOP
 
-
 /*Added to support easy changes to bit-shifter functions in coremap.c*/
-#define CHUNK_SIZE_LEFTBOUND    32
-#define CHUNK_SIZE_RIGHTBOUND   13
-#define OWNER_LEFTBOUND         12
-#define OWNER_RIGHTBOUND        5
-#define FREE_BIT_POS            4
-#define CLEAN_BIT_POS           3
-#define	IS_FIRST_CHUNK_BIT_POS	2
-#define IS_LAST_CHUNK_BIT_POS	1
-// #define NEXT_CHUNK_LEFTBOUND	32
-// #define	NEXT_CHUNK_RIGHTBOUND	13
-#define	TYPE_SIZE				32
+#define CHUNK_SIZE_LEFTBOUND    64
+#define CHUNK_SIZE_RIGHTBOUND   45
+#define OWNER_LEFTBOUND         44
+#define OWNER_RIGHTBOUND        37
+#define FREE_BIT_POS            36
+#define CLEAN_BIT_POS           35
+#define	IS_FIRST_CHUNK_BIT_POS	34
+#define IS_LAST_CHUNK_BIT_POS	33
+#define VADDR_LEFTBOUND			32
+#define	VADDR_RIGHTBOUND		1
+#define	TYPE_SIZE				64
 
 
 /*
