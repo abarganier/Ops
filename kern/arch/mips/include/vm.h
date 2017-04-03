@@ -83,6 +83,21 @@
  */
 #define USERSTACK     USERSPACETOP
 
+
+/*Added to support easy changes to bit-shifter functions in coremap.c*/
+#define CHUNK_SIZE_LEFTBOUND    64
+#define CHUNK_SIZE_RIGHTBOUND   45
+#define OWNER_LEFTBOUND         44
+#define OWNER_RIGHTBOUND        37
+#define FREE_BIT_POS            36
+#define CLEAN_BIT_POS           35
+#define	IS_FIRST_CHUNK_BIT_POS	34
+#define IS_LAST_CHUNK_BIT_POS	33
+#define NEXT_CHUNK_LEFTBOUND	32
+#define	NEXT_CHUNK_RIGHTBOUND	13
+#define	TYPE_SIZE				64
+
+
 /*
  * Interface to the low-level module that looks after the amount of
  * physical memory we have.
@@ -104,6 +119,9 @@
  * memory that cannot be freed later. This is intended for use early
  * in bootup before VM initialization is complete.
  */
+
+extern paddr_t coremap_paddr;	//Marks starting address of coremap
+
 
 void ram_bootstrap(void);
 paddr_t ram_stealmem(unsigned long npages);

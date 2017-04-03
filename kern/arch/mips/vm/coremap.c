@@ -41,13 +41,6 @@
 
 
 
-/*Added to support easy changes to bit-shifter functions*/
-#define CHUNK_SIZE_LEFTBOUND    32
-#define CHUNK_SIZE_RIGHTBOUND   13
-#define OWNER_LEFTBOUND         12
-#define OWNER_RIGHTBOUND        5
-#define FREE_BIT_POS            4
-#define CLEAN_BIT_POS           3
 
 
 
@@ -59,16 +52,16 @@ Current structure of page-entry:
 */
 
 /*Takes 32-bit page entry and returns chunk size*/
-uint32_t
-get_chunk_size(uint32_t page_entry)
+uint64_t
+get_chunk_size(uint64_t page_entry)
 {
 	page_entry >>= CHUNK_SIZE_RIGHTBOUND -1; //rightshifts by num bits to the right of chunk_size
 	return page_entry;
 }
 
 /*Sets chunk_size onto existing page_entry*/
-uint32_t
-set_chunk_size(uint32_t chunk_size, uint32_t page_entry)
+uint64_t
+set_chunk_size(uint64_t chunk_size, uint64_t page_entry)
 {
 	chunk_size <<= (CHUNK_SIZE_RIGHTBOUND-1);
 	page_entry <<= (CHUNK_SIZE_LEFTBOUND - CHUNK_SIZE_RIGHTBOUND +1);
@@ -77,31 +70,31 @@ set_chunk_size(uint32_t chunk_size, uint32_t page_entry)
 	return page_entry;
 }
 
-/*Takes 32-bit page entry and returns owner (PID)*/
-uint32_t
-get_owner(uint32_t page_entry){
+/*Takes TYPE_SIZE-bit page entry and returns owner (PID)*/
+uint64_t
+get_owner(uint64_t page_entry){
 	//Leftshift to get rid of all bits to the left of owner
-	page_entry <<= 32 - OWNER_LEFTBOUND;
+	page_entry <<= TYPE_SIZE - OWNER_LEFTBOUND;
 	//Rightshift to place owner bits in rightmost bit positions
-	page_entry >>= 32 - (OWNER_LEFTBOUND - OWNER_RIGHTBOUND +1);
+	page_entry >>= TYPE_SIZE - (OWNER_LEFTBOUND - OWNER_RIGHTBOUND +1);
 	return page_entry;
 }
 
 /*Sets owner onto existing page_entry*/
-uint32_t
-set_owner(uint32_t owner, uint32_t page_entry)
+uint64_t
+set_owner(uint64_t owner, uint64_t page_entry)
 {
 	//Leftshift owner to correct bit positions
 	owner <<= OWNER_RIGHTBOUND-1;
 	
 	//Make copy of bits left of owner
-	uint32_t left_bits = page_entry;
+	uint64_t left_bits = page_entry;
 	left_bits >>= OWNER_LEFTBOUND;
 	left_bits <<= OWNER_LEFTBOUND;
 
 	//Remove original owner bits and all bits left of it from page_entry
-	page_entry <<= 32 - (OWNER_RIGHTBOUND - 1);
-	page_entry >>= 32 - (OWNER_RIGHTBOUND - 1);
+	page_entry <<= TYPE_SIZE - (OWNER_RIGHTBOUND - 1);
+	page_entry >>= TYPE_SIZE - (OWNER_RIGHTBOUND - 1);
 
 	//OR left_bits back into page_entry
 	page_entry |= left_bits;
@@ -114,40 +107,40 @@ set_owner(uint32_t owner, uint32_t page_entry)
 
 /*Takes 32-bit page entry and returns free_bit*/
 bool
-get_page_is_free(uint32_t page_entry)
+get_page_is_free(uint64_t page_entry)
 {
 	//Leftshift to get rid of all bits to the left of free_bit
-	page_entry <<= 32 - FREE_BIT_POS;
+	page_entry <<= TYPE_SIZE - FREE_BIT_POS;
 	
 	//Rightshift to place free_bit at right-most bit position
-	page_entry >>= 31;
+	page_entry >>= TYPE_SIZE -1;
 	
 	//Check value of bit
-	if((int)page_entry == 1){
+	if((uint64_t)page_entry == 1){
 		return true;
 	}
 	return false;
 }
 
 /*Sets free_bit onto existing page_entry*/
-uint32_t
-set_page_is_free(bool page_is_free, uint32_t page_entry)
+uint64_t
+set_page_is_free(bool page_is_free, uint64_t page_entry)
 {
 	//Make copy of bits left of free_bit
-	uint32_t left_bits = page_entry;
+	uint64_t left_bits = page_entry;
 	left_bits >>= FREE_BIT_POS;
 	left_bits <<= FREE_BIT_POS;
 
 	//Remove original free_bit and all bits to its left
-	page_entry <<= 32 - (FREE_BIT_POS - 1);
-	page_entry >>= 32 - (FREE_BIT_POS - 1);
+	page_entry <<= TYPE_SIZE - (FREE_BIT_POS - 1);
+	page_entry >>= TYPE_SIZE - (FREE_BIT_POS - 1);
 
 	//OR in left_bits
 	page_entry |= left_bits;
 
 	//If page is free, shift a 1 into the FREE_BIT_POS and OR into page_entry
 	if(page_is_free){
-		uint32_t free_bit = 1;
+		uint64_t free_bit = 1;
 		free_bit <<= FREE_BIT_POS-1;
 		page_entry |= free_bit;
 	}
@@ -155,42 +148,42 @@ set_page_is_free(bool page_is_free, uint32_t page_entry)
 	return page_entry;
 }
 
-/*Takes 32-bit page entry and returns clean_bit*/
+/*Takes 64-bit page entry and returns clean_bit*/
 bool
-get_page_is_clean(uint32_t page_entry)
+get_page_is_clean(uint64_t page_entry)
 {
 	//Leftshift to get rid of all bits to the left of clean_bit
-	page_entry <<= 32 - CLEAN_BIT_POS;
+	page_entry <<= TYPE_SIZE - CLEAN_BIT_POS;
 	
 	//Rightshift to place clean_bit at right-most bit position
-	page_entry >>= 31;
+	page_entry >>= TYPE_SIZE - 1;
 	
 	//Check value of bit
-	if((int)page_entry == 1){
+	if((uint64_t)page_entry == 1){
 		return true;
 	}
 	return false;
 }
 
 /*Sets clean_bit onto existing page_entry*/
-uint32_t
-set_page_is_clean(bool page_is_clean, uint32_t page_entry)
+uint64_t
+set_page_is_clean(bool page_is_clean, uint64_t page_entry)
 {
 	//Make copy of bits left of clean_bit
-	uint32_t left_bits = page_entry;
+	uint64_t left_bits = page_entry;
 	left_bits >>= CLEAN_BIT_POS;
 	left_bits <<= CLEAN_BIT_POS;
 
 	//Remove original clean_bit and all bits to its left
-	page_entry <<= 32 - (CLEAN_BIT_POS - 1);
-	page_entry >>= 32 - (CLEAN_BIT_POS - 1);
+	page_entry <<= TYPE_SIZE - (CLEAN_BIT_POS - 1);
+	page_entry >>= TYPE_SIZE - (CLEAN_BIT_POS - 1);
 
 	//OR in left_bits
 	page_entry |= left_bits;
 
 	//If page is clean, shift a 1 into the CLEAN_BIT_POS and OR into page_entry
 	if(page_is_clean){
-		uint32_t clean_bit = 1;
+		uint64_t clean_bit = 1;
 		clean_bit <<= CLEAN_BIT_POS-1;
 		page_entry |= clean_bit;
 	}
@@ -198,11 +191,134 @@ set_page_is_clean(bool page_is_clean, uint32_t page_entry)
 	return page_entry;
 }
 
-/*One-run build of page_entry*/
-uint32_t 
-build_page_entry(uint32_t chunk_size, uint32_t owner, bool is_free, bool is_clean)
+
+/*Takes 64-bit page entry and returns is_first_chunk_bit*/
+bool
+get_is_first_chunk(uint64_t page_entry)
 {
-	uint32_t page_entry = 0;
+	//Leftshift to get rid of all bits to the left of is_first_chunk_bit
+	page_entry <<= TYPE_SIZE - IS_FIRST_CHUNK_BIT_POS;
+	
+	//Rightshift to place is_first_chunk_bit at right-most bit position
+	page_entry >>= TYPE_SIZE - 1;
+	
+	//Check value of bit
+	if((uint64_t)page_entry == 1){
+		return true;
+	}
+	return false;
+}
+
+/*Sets is_first_chunk_bit onto existing page_entry*/
+uint64_t
+set_page_is_clean(bool is_first_chunk, uint64_t page_entry)
+{
+	//Make copy of bits left of is_first_chunk_bit
+	uint64_t left_bits = page_entry;
+	left_bits >>= IS_FIRST_CHUNK_BIT_POS;
+	left_bits <<= IS_FIRST_CHUNK_BIT_POS;
+
+	//Remove original is_first_chunk_bit and all bits to its left
+	page_entry <<= TYPE_SIZE - (IS_FIRST_CHUNK_BIT_POS - 1);
+	page_entry >>= TYPE_SIZE - (IS_FIRST_CHUNK_BIT_POS - 1);
+
+	//OR in left_bits
+	page_entry |= left_bits;
+
+	//If page is first chunk, shift a 1 into the IS_FIRST_CHUNK_BIT_POS and OR into page_entry
+	if(is_first_chunk){
+		uint64_t is_first_chunk_bit = 1;
+		is_first_chunk_bit <<= IS_FIRST_CHUNK_BIT_POS-1;
+		page_entry |= is_first_chunk_bit;
+	}
+	
+	return page_entry;
+}
+
+/*Takes 64-bit page entry and returns is_last_chunk_bit*/
+bool
+get_is_last_chunk(uint64_t page_entry)
+{
+	//Leftshift to get rid of all bits to the left of is_last_chunk_bit
+	page_entry <<= TYPE_SIZE - IS_LAST_CHUNK_BIT_POS;
+	
+	//Rightshift to place is_last_chunk_bit at right-most bit position
+	page_entry >>= TYPE_SIZE - 1;
+	
+	//Check value of bit
+	if((uint64_t)page_entry == 1){
+		return true;
+	}
+	return false;
+}
+
+/*Sets is_last_chunk_bit onto existing page_entry*/
+uint64_t
+set_page_is_clean(bool is_last_chunk, uint64_t page_entry)
+{
+	//Make copy of bits left of is_last_chunk_bit
+	uint64_t left_bits = page_entry;
+	left_bits >>= IS_LAST_CHUNK_BIT_POS;
+	left_bits <<= IS_LAST_CHUNK_BIT_POS;
+
+	//Remove original is_last_chunk_bit and all bits to its left
+	page_entry <<= TYPE_SIZE - (IS_LAST_CHUNK_BIT_POS - 1);
+	page_entry >>= TYPE_SIZE - (IS_LAST_CHUNK_BIT_POS - 1);
+
+	//OR in left_bits
+	page_entry |= left_bits;
+
+	//If page is first chunk, shift a 1 into the IS_LAST_CHUNK_BIT_POS and OR into page_entry
+	if(is_last_chunk){
+		uint64_t is_last_chunk_bit = 1;
+		is_last_chunk_bit <<= IS_LAST_CHUNK_BIT_POS-1;
+		page_entry |= is_last_chunk_bit;
+	}
+	
+	return page_entry;
+}
+
+
+/*Takes TYPE_SIZE-bit page entry and returns index of next_chunk*/
+uint64_t
+get_next_chunk(uint64_t page_entry){
+	//Leftshift to get rid of all bits to the left of next_chunk
+	page_entry <<= TYPE_SIZE - NEXT_CHUNK_LEFTBOUND;
+	//Rightshift to place next_chunk bits in rightmost bit positions
+	page_entry >>= TYPE_SIZE - (NEXT_CHUNK_LEFTBOUND - NEXT_CHUNK_RIGHTBOUND +1);
+	return page_entry;
+}
+
+/*Sets next_chunk index onto existing page_entry*/
+uint64_t
+set_next_chunk(uint64_t next_chunk, uint64_t page_entry)
+{
+	//Leftshift next_chunk to correct bit positions
+	next_chunk <<= NEXT_CHUNK_RIGHTBOUND-1;
+	
+	//Make copy of bits left of next_chunk
+	uint64_t left_bits = page_entry;
+	left_bits >>= NEXT_CHUNK_LEFTBOUND;
+	left_bits <<= NEXT_CHUNK_LEFTBOUND;
+
+	//Remove original next_chunk bits and all bits left of it from page_entry
+	page_entry <<= TYPE_SIZE - (NEXT_CHUNK_RIGHTBOUND - 1);
+	page_entry >>= TYPE_SIZE - (NEXT_CHUNK_RIGHTBOUND - 1);
+
+	//OR left_bits back into page_entry
+	page_entry |= left_bits;
+
+	//OR new owner into page_entry
+	page_entry |= owner;
+
+	return page_entry;
+}
+
+/*One-run build of page_entry*/
+uint64_t
+build_page_entry(uint64_t chunk_size, uint64_t owner, bool is_free, bool is_clean, bool is_first_chunk, bool is_last_chunk, uint64_t next_chunk)
+{
+	uint64_t page_entry = 0;
 
 	//Move chunk_size and owner parameter values into correct bit positions
 	chunk_size <<= CHUNK_SIZE_RIGHTBOUND-1;
@@ -214,17 +330,41 @@ build_page_entry(uint32_t chunk_size, uint32_t owner, bool is_free, bool is_clea
 
 	//If page is free, shift a 1 into the FREE_BIT_POS and OR into page_entry
 	if(is_free){
-		uint32_t free_bit = 1;
+		uint64_t free_bit = 1;
 		free_bit <<= FREE_BIT_POS-1;
 		page_entry |= free_bit;
 	}
 
 	//If page is clean, shift a 1 into the CLEAN_BIT_POS and OR into page_entry
 	if(is_clean){
-		uint32_t clean_bit = 1;
+		uint64_t clean_bit = 1;
 		clean_bit <<= CLEAN_BIT_POS-1;
 		page_entry |= clean_bit;
 	}
 
+	//If page is first chunk, shift a 1 into the IS_FIRST_CHUNK_BIT_POS and OR into page_entry
+	if(is_first_chunk){
+		uint64_t is_first_chunk_bit = 1;
+		is_first_chunk_bit <<= IS_FIRST_CHUNK_BIT_POS-1;
+		page_entry |= is_first_chunk_bit;
+	}
+
+	//If page is last chunk, shift a 1 into the IS_LAST_CHUNK_BIT_POS and OR into page_entry
+	if(is_last_chunk){
+		uint64_t is_last_chunk_bit = 1;
+		is_last_chunk_bit <<= IS_LAST_CHUNK_BIT_POS-1;
+		page_entry |= is_last_chunk_bit;
+	}
+
+	//If page is not last chunk, move next_chunk bits into correct bit position and OR into page_entry
+	else{
+		next_chunk <<= NEXT_CHUNK_RIGHTBOUND-1;
+		page_entry |= next_chunk;
+	}
+
 	return page_entry;
 }
+
+
+
+
