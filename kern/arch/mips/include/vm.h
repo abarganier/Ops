@@ -120,12 +120,30 @@
  */
 
 extern paddr_t coremap_paddr;	//Marks starting address of coremap
+extern paddr_t firstpaddr;
 
 
 void ram_bootstrap(void);
 paddr_t ram_stealmem(unsigned long npages);
 paddr_t ram_getsize(void);
 paddr_t ram_getfirstfree(void);
+
+
+uint64_t get_chunk_size(uint64_t);
+uint64_t set_chunk_size(uint64_t, uint64_t);
+uint64_t get_owner(uint64_t);
+uint64_t set_owner(uint64_t, uint64_t);
+bool get_page_is_free(uint64_t);
+uint64_t set_page_is_free(bool, uint64_t);
+bool get_page_is_clean(uint64_t);
+uint64_t set_page_is_clean(bool, uint64_t);
+bool get_is_first_chunk(uint64_t);
+uint64_t set_page_is_clean(bool, uint64_t);
+bool get_is_last_chunk(uint64_t);
+uint64_t set_page_is_clean(bool, uint64_t);
+uint64_t get_vaddr(uint64_t);
+uint64_t set_vaddr(uint64_t, uint64_t);
+uint64_t build_page_entry(uint64_t, uint64_t, bool, bool, bool, bool, uint64_t);
 
 /*
  * TLB shootdown bits.

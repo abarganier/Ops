@@ -277,7 +277,8 @@ set_page_is_clean(bool is_last_chunk, uint64_t page_entry)
 
 /*Takes TYPE_SIZE-bit page entry and returns index of next_chunk*/
 uint64_t
-get_vaddr(uint64_t page_entry){
+get_vaddr(uint64_t page_entry)
+{
 	page_entry <<= VADDR_LEFTBOUND;
 	page_entry >>= VADDR_LEFTBOUND;
 	return page_entry;
