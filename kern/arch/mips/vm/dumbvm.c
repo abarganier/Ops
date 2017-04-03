@@ -57,7 +57,8 @@
 
 /* under dumbvm, always have 72k of user stack */
 /* (this must be > 64K so argument blocks of size ARG_MAX will fit) */
-#define DUMBVM_STACKPAGES    18
+#define DUMBVM_STACKPAGES       18
+
 
 /*
  * Wrap ram_stealmem in a spinlock.
@@ -434,3 +435,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	*ret = new;
 	return 0;
 }
+
+
+
