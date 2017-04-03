@@ -40,7 +40,7 @@ static paddr_t lastpaddr;   /* one past end of last free physical page */
 static paddr_t kernaddr_start = 0x200;
 
 paddr_t coremap_paddr;		//Marks starting address of coremap. Should never change after first assignment.
-
+uint32_t coremap_size;
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.
@@ -75,6 +75,7 @@ ram_bootstrap(void)
 	kernaddr_start = firstpaddr - 1;
 
 	coremap_paddr = firstpaddr;
+	coremap_size = ramsize / 4096;
 
 	firstpaddr = firstpaddr + ((ramsize / 4096)*8);
 

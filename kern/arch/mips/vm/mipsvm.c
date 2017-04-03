@@ -64,7 +64,48 @@ vm_bootstrap(void)
 vaddr_t
 alloc_kpages(unsigned npages)
 {
-	(void)npages;
+	uint64_t cm_entry;
+	bool found_pages = false;
+
+	for(uint32_t offset = 1; offset < coremap_size; offset++) {
+
+		paddr_t address = coremap_paddr + ( sizeof(uint64_t) * offset );
+		cm_entry = (uint64_t) address;
+
+		if( get_page_is_free(cm_entry) ) {
+
+			uint64_t next_entry;
+
+			for(uint32_t nextpage = 1; nextpage < npages; nextpage++) {
+
+				paddr_t next_address = address + ( sizeof(uint64_t) * nextpage );
+				next_entry = (uint64_t) next_address;
+				if( !get_page_is_free(next_entry) ) {
+					found_pages = false;
+					break;
+				}
+				if( nextpage == npages-1) { // if we reach the end without breaking
+					found_pages = true;
+				}
+			}
+		}
+
+		if(found_pages) {
+			break;
+		}
+	}
+
+	if(!found_pages) {
+		panic("Unable to find %d contiguous pages in coremap!\n", npages);
+	}
+
+	// Now ready to set state of n coremap entries
+
+	for(uint64_t entry = 0; entry < npages; entry++) {
+		// Set each coremap entry with proper values
+	}
+
+	// Return virtual address of the first page.
 	return 0;
 }
 

@@ -121,6 +121,7 @@
 
 extern paddr_t coremap_paddr;	//Marks starting address of coremap
 extern paddr_t firstpaddr;
+extern uint32_t coremap_size;
 
 
 void ram_bootstrap(void);
