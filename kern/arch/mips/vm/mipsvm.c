@@ -105,7 +105,12 @@ alloc_kpages(unsigned npages)
 		// Set each coremap entry with proper values
 	}
 
+	//Convert PADDR to VADDR
+
+	//Update [all?] reserved entries with owner VADDR
+
 	// Return virtual address of the first page.
+
 	return 0;
 }
 
