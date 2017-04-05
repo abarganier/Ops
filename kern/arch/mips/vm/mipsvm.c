@@ -40,6 +40,7 @@
 #include <vm.h>
 
 static struct spinlock coremap_lock = SPINLOCK_INITIALIZER;
+uint32_t coremap_used_pages; // Also protected from coremap_lock
 
 void
 vm_bootstrap(void)
@@ -107,6 +108,7 @@ alloc_kpages(unsigned npages)
 	 */
 	uint64_t first_entry = build_page_entry(npages, 0, false, false, true, false, virtual_address);
 	coremap[first_index] = first_entry;
+	coremap_used_pages++;
 
 	/*
 	 *	Set additional coremap entries (if more than one)
@@ -114,6 +116,7 @@ alloc_kpages(unsigned npages)
 	uint64_t mid_entry = build_page_entry(npages, 0, false, false, false, false, virtual_address);
 	for(uint64_t entry = 1; entry < npages; entry++) {
 		coremap[first_index + entry] = mid_entry;
+		coremap_used_pages++;
 	}
 	spinlock_release(&coremap_lock);
 
@@ -142,6 +145,7 @@ free_kpages(vaddr_t addr)
 
 			for(uint32_t chunk = 0; chunk < chunk_size; chunk++) {
 				coremap[entry + chunk] = 0;
+				coremap_used_pages--;
 			}
 
 			break;
@@ -161,9 +165,7 @@ free_kpages(vaddr_t addr)
 unsigned
 int
 coremap_used_bytes() {
-
-	/* dumbvm doesn't track page allocations. Return 0 so that khu works. */
-	return 0;
+	return coremap_used_pages * 4096;
 }
 
 void

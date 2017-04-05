@@ -37,11 +37,12 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 
 paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
-// static paddr_t kernaddr_start = 0x200;
 static paddr_t kernaddr_end;
 
 paddr_t coremap_paddr;		//Marks starting address of coremap. Should never change after first assignment.
 uint32_t coremap_size;
+uint32_t coremap_used_pages;
+
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.
@@ -96,9 +97,11 @@ ram_bootstrap(void)
 
 	uint64_t *cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	cm_addr[0] = first_entry;
+	coremap_used_pages++;
 
 	for(uint64_t entry = 1; entry < num_kern_pages; entry++) {
 		cm_addr[entry] = mid_entry;
+		coremap_used_pages++;
 	}
 
 	/*
@@ -114,9 +117,11 @@ ram_bootstrap(void)
 
 	cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr + ((uint32_t)num_kern_pages) * 8);
 	cm_addr[0] = first_entry;
+	coremap_used_pages++;
 
 	for(uint64_t entry = 1; entry < num_cm_pages; entry++) {
 		cm_addr[entry] = mid_entry;
+		coremap_used_pages++;
 	}
 
 	kprintf("%uk physical memory available\n",
