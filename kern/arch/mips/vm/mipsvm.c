@@ -39,7 +39,7 @@
 #include <addrspace.h>
 #include <vm.h>
 
-// static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
+static struct spinlock coremap_lock = SPINLOCK_INITIALIZER;
 
 void
 vm_bootstrap(void)
@@ -55,7 +55,7 @@ alloc_kpages(unsigned npages)
 	uint64_t cm_entry;
 	uint64_t first_index = 0;
 	bool found_pages = false;
-
+	spinlock_acquire(&coremap_lock);
 	for(uint32_t offset = 0; offset < coremap_size; offset++) {
 
 		cm_entry = coremap[offset];
@@ -115,6 +115,7 @@ alloc_kpages(unsigned npages)
 	for(uint64_t entry = 1; entry < npages; entry++) {
 		coremap[first_index + entry] = mid_entry;
 	}
+	spinlock_release(&coremap_lock);
 
 	return virtual_address;
 }
@@ -125,6 +126,7 @@ free_kpages(vaddr_t addr)
 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	bool not_found = false;
 
+	spinlock_acquire(&coremap_lock);
 	for(uint32_t entry = 0; entry < coremap_size; entry++) {
 
 		if(get_vaddr(coremap[entry]) == addr) {
@@ -149,6 +151,7 @@ free_kpages(vaddr_t addr)
 			not_found = true;
 		}
 	}
+	spinlock_release(&coremap_lock);
 
 	if(not_found) {
 		panic("free_kpages was unable to find the address passed!\n");
