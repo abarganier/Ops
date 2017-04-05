@@ -39,27 +39,13 @@
 #include <addrspace.h>
 #include <vm.h>
 
-
-
-/*
- * Wrap ram_stealmem in a spinlock.
- */
 // static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
-
 
 void
 vm_bootstrap(void)
 {
 	/* Do nothing. */
 }
-
-// static
-// paddr_t
-// getppages(unsigned long npages)
-// {
-// 	(void)npages;
-// 	return 0;
-// }
 
 /* Allocate/free some kernel-space virtual pages */
 vaddr_t
@@ -69,31 +55,28 @@ alloc_kpages(unsigned npages)
 	uint64_t cm_entry;
 	uint64_t first_index = 0;
 	bool found_pages = false;
-	// kprintf("alloc_kpages called, requested %d pages\n", npages);
 
 	for(uint32_t offset = 0; offset < coremap_size; offset++) {
-		// kprintf("looking for first free page, offset = %d\n", offset);
-		// paddr_t address = coremap_paddr + ( sizeof(uint64_t) * offset );
-		// cm_entry = (uint64_t) address;
+
 		cm_entry = coremap[offset];
 
-		if(get_page_is_free(cm_entry) ) {
+		if(get_page_is_free(cm_entry)) {
 
+			// If more than 1 page, make sure next chunks are free as well, else set index
 			if(npages > 1) {
 
 				uint64_t next_entry;
 
 				for(uint32_t nextpage = 1; nextpage < npages; nextpage++) {
 
-					// paddr_t next_address = address + ( sizeof(uint64_t) * nextpage );
-					// next_entry = (uint64_t) next_address;
 					next_entry = coremap[offset + nextpage];
 
-					if( !get_page_is_free(next_entry) ) {
+					if(!get_page_is_free(next_entry)) {
 						found_pages = false;
 						break;
 					}
-					if( nextpage == npages-1 ) { // if we reach the end without breaking
+
+					if(nextpage == npages - 1) { 
 						first_index = offset;
 						found_pages = true;
 					}
@@ -110,37 +93,27 @@ alloc_kpages(unsigned npages)
 	}
 
 	if(!found_pages) {
-		// panic("Unable to find %d contiguous pages in coremap!\n", npages);
-		panic("Unable to find enough contiguous pages in the coremap!\n");
-		return (vaddr_t) 0;
+		panic("Unable to find %d contiguous pages in coremap!\n", npages);
 	}
 
 	vaddr_t virtual_address = PADDR_TO_KVADDR(first_index*4096);
-	/**
-	 *	CURPROC DOESN'T EXIST YET, SET TO 0 FOR NOW
-	 **/
-	// pid_t owner = curproc->pid; 
-	uint64_t first_entry;
-	if(npages == 1) {
-		first_entry = build_page_entry(npages, 0, false, false, true, true, virtual_address);
-	} else {
-		first_entry = build_page_entry(npages, 0, false, false, true, false, virtual_address);
-	}
+	
+	/*
+	 *	NOTE: AT BOOT, CURPROC DOESN'T EXIST YET, SET OWNER TO 0 FOR NOW. The kernel probably owns this stuff, anyway? 
+	 */
+
+	/*
+	 *	Set first coremap entry
+	 */
+	uint64_t first_entry = build_page_entry(npages, 0, false, false, true, false, virtual_address);
 	coremap[first_index] = first_entry;
 
-
-	uint64_t last_entry = build_page_entry(npages, 0, false, false, false, true, virtual_address);
-	if(npages == 2) {
-
-		coremap[first_index+1] = first_entry;
-	
-	} else if(npages > 2) {
-	
-		uint64_t mid_entry = build_page_entry(npages, 0, false, false, false, false, virtual_address);
-		for(uint64_t entry = 0; entry < npages-1; entry++) {
-			coremap[entry+1] = mid_entry;
-		}
-		coremap[first_index+npages-1] = last_entry;
+	/*
+	 *	Set additional coremap entries (if more than one)
+	 */
+	uint64_t mid_entry = build_page_entry(npages, 0, false, false, false, false, virtual_address);
+	for(uint64_t entry = 1; entry < npages; entry++) {
+		coremap[first_index + entry] = mid_entry;
 	}
 
 	return virtual_address;
@@ -149,8 +122,37 @@ alloc_kpages(unsigned npages)
 void
 free_kpages(vaddr_t addr)
 {
-	/* nothing - leak the memory. */
-	(void)addr;
+	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
+	bool not_found = false;
+
+	for(uint32_t entry = 0; entry < coremap_size; entry++) {
+
+		if(get_vaddr(coremap[entry]) == addr) {
+
+			if(get_is_fixed(coremap[entry])) {
+				panic("Unable to free fixed coremap entries!\n");
+			}
+
+			// should be first chunk of set
+			KASSERT(get_is_first_chunk(coremap[entry]));
+
+			uint64_t chunk_size = get_chunk_size(coremap[entry]);
+
+			for(uint32_t chunk = 0; chunk < chunk_size; chunk++) {
+				coremap[entry + chunk] = 0;
+			}
+
+			break;
+		}
+
+		if(entry == coremap_size-1) {
+			not_found = true;
+		}
+	}
+
+	if(not_found) {
+		panic("free_kpages was unable to find the address passed!\n");
+	}
 }
 
 unsigned

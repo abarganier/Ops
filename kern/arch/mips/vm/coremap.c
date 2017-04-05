@@ -44,7 +44,7 @@
 /*
 Current structure of page-entry:
 
-[Chunksize, owner(PID), free_bit, clean_bit, is_first_chunk_bit, is_last_chunk_bit, owner VADDR]
+[Chunksize, owner(PID), free_bit, clean_bit, is_first_chunk_bit, is_fixed_bit, owner VADDR]
 
 */
 
@@ -111,10 +111,10 @@ get_page_is_free(uint64_t page_entry)
 	page_entry <<= TYPE_SIZE - FREE_BIT_POS;
 	
 	// //Rightshift to place free_bit at right-most bit position
-	page_entry >>= TYPE_SIZE -1;
+	page_entry >>= TYPE_SIZE - 1;
 	
 	// //Check value of bit
-	if((uint64_t)page_entry == 0){
+	if(page_entry == 0){
 		return true;
 	}
 	return false;
@@ -139,8 +139,8 @@ set_page_is_free(bool page_is_free, uint64_t page_entry)
 	page_entry |= left_bits;
 
 	//If page is free, shift a 1 into the FREE_BIT_POS and OR into page_entry
-	if(page_is_free){
-		uint64_t free_bit = 0;
+	if(!page_is_free){
+		uint64_t free_bit = 1;
 		free_bit <<= FREE_BIT_POS-1;
 		page_entry |= free_bit;
 	}
@@ -237,10 +237,10 @@ set_is_first_chunk(bool is_first_chunk, uint64_t page_entry)
 
 /*Takes 64-bit page entry and returns is_last_chunk_bit*/
 bool
-get_is_last_chunk(uint64_t page_entry)
+get_is_fixed(uint64_t page_entry)
 {
 	//Leftshift to get rid of all bits to the left of is_last_chunk_bit
-	page_entry <<= TYPE_SIZE - IS_LAST_CHUNK_BIT_POS;
+	page_entry <<= TYPE_SIZE - IS_FIXED_BIT_POS;
 	
 	//Rightshift to place is_last_chunk_bit at right-most bit position
 	page_entry >>= TYPE_SIZE - 1;
@@ -254,24 +254,24 @@ get_is_last_chunk(uint64_t page_entry)
 
 /*Sets is_last_chunk_bit onto existing page_entry*/
 uint64_t
-set_is_last_chunk(bool is_last_chunk, uint64_t page_entry)
+set_is_fixed(bool is_last_chunk, uint64_t page_entry)
 {
 	//Make copy of bits left of is_last_chunk_bit
 	uint64_t left_bits = page_entry;
-	left_bits >>= IS_LAST_CHUNK_BIT_POS;
-	left_bits <<= IS_LAST_CHUNK_BIT_POS;
+	left_bits >>= IS_FIXED_BIT_POS;
+	left_bits <<= IS_FIXED_BIT_POS;
 
 	//Remove original is_last_chunk_bit and all bits to its left
-	page_entry <<= TYPE_SIZE - (IS_LAST_CHUNK_BIT_POS - 1);
-	page_entry >>= TYPE_SIZE - (IS_LAST_CHUNK_BIT_POS - 1);
+	page_entry <<= TYPE_SIZE - (IS_FIXED_BIT_POS - 1);
+	page_entry >>= TYPE_SIZE - (IS_FIXED_BIT_POS - 1);
 
 	//OR in left_bits
 	page_entry |= left_bits;
 
-	//If page is first chunk, shift a 1 into the IS_LAST_CHUNK_BIT_POS and OR into page_entry
+	//If page is first chunk, shift a 1 into the IS_FIXED_BIT_POS and OR into page_entry
 	if(is_last_chunk){
 		uint64_t is_last_chunk_bit = 1;
-		is_last_chunk_bit <<= IS_LAST_CHUNK_BIT_POS-1;
+		is_last_chunk_bit <<= IS_FIXED_BIT_POS-1;
 		page_entry |= is_last_chunk_bit;
 	}
 	
@@ -318,7 +318,7 @@ set_vaddr(uint64_t vaddr, uint64_t page_entry)
 
 /*One-run build of page_entry*/
 uint64_t
-build_page_entry(uint64_t chunk_size, uint64_t owner, bool is_free, bool is_clean, bool is_first_chunk, bool is_last_chunk, uint64_t vaddr)
+build_page_entry(uint64_t chunk_size, uint64_t owner, bool is_free, bool is_clean, bool is_first_chunk, bool is_fixed, uint64_t vaddr)
 {
 	uint64_t page_entry = 0;
 
@@ -351,11 +351,11 @@ build_page_entry(uint64_t chunk_size, uint64_t owner, bool is_free, bool is_clea
 		page_entry |= is_first_chunk_bit;
 	}
 
-	//If page is last chunk, shift a 1 into the IS_LAST_CHUNK_BIT_POS and OR into page_entry
-	if(is_last_chunk){
-		uint64_t is_last_chunk_bit = 1;
-		is_last_chunk_bit <<= IS_LAST_CHUNK_BIT_POS-1;
-		page_entry |= is_last_chunk_bit;
+	//If page is last chunk, shift a 1 into the IS_FIXED_BIT_POS and OR into page_entry
+	if(is_fixed){
+		uint64_t is_fixed_bit = 1;
+		is_fixed_bit <<= IS_FIXED_BIT_POS-1;
+		page_entry |= is_fixed_bit;
 	}
 
 	page_entry |= vaddr;

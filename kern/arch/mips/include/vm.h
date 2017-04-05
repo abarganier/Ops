@@ -91,7 +91,7 @@
 #define FREE_BIT_POS            36
 #define CLEAN_BIT_POS           35
 #define	IS_FIRST_CHUNK_BIT_POS	34
-#define IS_LAST_CHUNK_BIT_POS	33
+#define IS_FIXED_BIT_POS		33
 #define VADDR_LEFTBOUND			32
 #define	VADDR_RIGHTBOUND		1
 #define	TYPE_SIZE				64
@@ -140,8 +140,8 @@ bool get_page_is_clean(uint64_t);
 uint64_t set_page_is_clean(bool, uint64_t);
 bool get_is_first_chunk(uint64_t);
 uint64_t set_is_first_chunk(bool, uint64_t);
-bool get_is_last_chunk(uint64_t);
-uint64_t set_is_last_chunk(bool, uint64_t);
+bool get_is_fixed(uint64_t);
+uint64_t set_is_fixed(bool, uint64_t);
 uint64_t get_vaddr(uint64_t);
 uint64_t set_vaddr(uint64_t, uint64_t);
 uint64_t build_page_entry(uint64_t, uint64_t, bool, bool, bool, bool, uint64_t);
