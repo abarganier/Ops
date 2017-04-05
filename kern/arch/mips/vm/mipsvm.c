@@ -40,6 +40,7 @@
 #include <vm.h>
 
 
+
 /*
  * Wrap ram_stealmem in a spinlock.
  */
@@ -64,31 +65,44 @@ vm_bootstrap(void)
 vaddr_t
 alloc_kpages(unsigned npages)
 {
+	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	uint64_t cm_entry;
+	uint64_t first_index = 0;
 	bool found_pages = false;
+	// kprintf("alloc_kpages called, requested %d pages\n", npages);
 
-	for(uint32_t offset = 1; offset < coremap_size; offset++) {
+	for(uint32_t offset = 0; offset < coremap_size; offset++) {
+		// kprintf("looking for first free page, offset = %d\n", offset);
+		// paddr_t address = coremap_paddr + ( sizeof(uint64_t) * offset );
+		// cm_entry = (uint64_t) address;
+		cm_entry = coremap[offset];
 
-		paddr_t address = coremap_paddr + ( sizeof(uint64_t) * offset );
-		cm_entry = (uint64_t) address;
+		if(get_page_is_free(cm_entry) ) {
 
-		if( get_page_is_free(cm_entry) ) {
+			if(npages > 1) {
 
-			uint64_t next_entry;
+				uint64_t next_entry;
 
-			for(uint32_t nextpage = 1; nextpage < npages; nextpage++) {
+				for(uint32_t nextpage = 1; nextpage < npages; nextpage++) {
 
-				paddr_t next_address = address + ( sizeof(uint64_t) * nextpage );
-				next_entry = (uint64_t) next_address;
-				if( !get_page_is_free(next_entry) ) {
-					found_pages = false;
-					break;
+					// paddr_t next_address = address + ( sizeof(uint64_t) * nextpage );
+					// next_entry = (uint64_t) next_address;
+					next_entry = coremap[offset + nextpage];
+
+					if( !get_page_is_free(next_entry) ) {
+						found_pages = false;
+						break;
+					}
+					if( nextpage == npages-1 ) { // if we reach the end without breaking
+						first_index = offset;
+						found_pages = true;
+					}
 				}
-				if( nextpage == npages-1) { // if we reach the end without breaking
-					found_pages = true;
-				}
+			}  else {
+				first_index = offset;
+				found_pages = true;
 			}
-		}
+		} 
 
 		if(found_pages) {
 			break;
@@ -96,22 +110,40 @@ alloc_kpages(unsigned npages)
 	}
 
 	if(!found_pages) {
-		panic("Unable to find %d contiguous pages in coremap!\n", npages);
+		// panic("Unable to find %d contiguous pages in coremap!\n", npages);
+		panic("Unable to find enough contiguous pages in the coremap!\n");
+		return (vaddr_t) 0;
 	}
 
-	// Now ready to set state of n coremap entries
+	vaddr_t virtual_address = PADDR_TO_KVADDR(first_index*4096);
+	/**
+	 *	CURPROC DOESN'T EXIST YET, SET TO 0 FOR NOW
+	 **/
+	// pid_t owner = curproc->pid; 
+	uint64_t first_entry;
+	if(npages == 1) {
+		first_entry = build_page_entry(npages, 0, false, false, true, true, virtual_address);
+	} else {
+		first_entry = build_page_entry(npages, 0, false, false, true, false, virtual_address);
+	}
+	coremap[first_index] = first_entry;
 
-	for(uint64_t entry = 0; entry < npages; entry++) {
-		// Set each coremap entry with proper values
+
+	uint64_t last_entry = build_page_entry(npages, 0, false, false, false, true, virtual_address);
+	if(npages == 2) {
+
+		coremap[first_index+1] = first_entry;
+	
+	} else if(npages > 2) {
+	
+		uint64_t mid_entry = build_page_entry(npages, 0, false, false, false, false, virtual_address);
+		for(uint64_t entry = 0; entry < npages-1; entry++) {
+			coremap[entry+1] = mid_entry;
+		}
+		coremap[first_index+npages-1] = last_entry;
 	}
 
-	//Convert PADDR to VADDR
-
-	//Update [all?] reserved entries with owner VADDR
-
-	// Return virtual address of the first page.
-
-	return 0;
+	return virtual_address;
 }
 
 void

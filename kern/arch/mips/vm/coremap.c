@@ -40,6 +40,7 @@
 #include <vm.h>
 
 
+
 /*
 Current structure of page-entry:
 
@@ -105,17 +106,20 @@ set_owner(uint64_t owner, uint64_t page_entry)
 bool
 get_page_is_free(uint64_t page_entry)
 {
+	// (void)page_entry;
 	//Leftshift to get rid of all bits to the left of free_bit
 	page_entry <<= TYPE_SIZE - FREE_BIT_POS;
 	
-	//Rightshift to place free_bit at right-most bit position
+	// //Rightshift to place free_bit at right-most bit position
 	page_entry >>= TYPE_SIZE -1;
 	
-	//Check value of bit
-	if((uint64_t)page_entry == 1){
+	// //Check value of bit
+	if((uint64_t)page_entry == 0){
 		return true;
 	}
 	return false;
+
+	// return true;
 }
 
 /*Sets free_bit onto existing page_entry*/
@@ -136,7 +140,7 @@ set_page_is_free(bool page_is_free, uint64_t page_entry)
 
 	//If page is free, shift a 1 into the FREE_BIT_POS and OR into page_entry
 	if(page_is_free){
-		uint64_t free_bit = 1;
+		uint64_t free_bit = 0;
 		free_bit <<= FREE_BIT_POS-1;
 		page_entry |= free_bit;
 	}
@@ -207,7 +211,7 @@ get_is_first_chunk(uint64_t page_entry)
 
 /*Sets is_first_chunk_bit onto existing page_entry*/
 uint64_t
-set_page_is_clean(bool is_first_chunk, uint64_t page_entry)
+set_is_first_chunk(bool is_first_chunk, uint64_t page_entry)
 {
 	//Make copy of bits left of is_first_chunk_bit
 	uint64_t left_bits = page_entry;
@@ -250,7 +254,7 @@ get_is_last_chunk(uint64_t page_entry)
 
 /*Sets is_last_chunk_bit onto existing page_entry*/
 uint64_t
-set_page_is_clean(bool is_last_chunk, uint64_t page_entry)
+set_is_last_chunk(bool is_last_chunk, uint64_t page_entry)
 {
 	//Make copy of bits left of is_last_chunk_bit
 	uint64_t left_bits = page_entry;
@@ -291,20 +295,19 @@ get_vaddr(uint64_t page_entry)
 uint64_t
 set_vaddr(uint64_t vaddr, uint64_t page_entry)
 {	
-	//Leftshift vaddr to correct bit positions
-	vaddr <<= VADDR_RIGHTBOUND-1;
+	// //Leftshift vaddr to correct bit positions
+	// vaddr <<= VADDR_RIGHTBOUND-1;
 	
-	//Make copy of bits left of vaddr
-	uint64_t left_bits = page_entry;
-	left_bits >>= VADDR_LEFTBOUND;
-	left_bits <<= VADDR_LEFTBOUND;
+	// //Make copy of bits left of vaddr
+	// uint64_t left_bits = page_entry;
+	// left_bits >>= VADDR_LEFTBOUND;
+	// left_bits <<= VADDR_LEFTBOUND;
 
 	//Remove original vaddr bits and all bits left of it from page_entry
-	page_entry <<= TYPE_SIZE - (VADDR_RIGHTBOUND - 1);
-	page_entry >>= TYPE_SIZE - (VADDR_RIGHTBOUND - 1);
-
-	//OR left_bits back into page_entry
-	page_entry |= left_bits;
+	page_entry >>= 32;
+	page_entry <<= 32;
+	// //OR left_bits back into page_entry
+	// page_entry |= left_bits;
 
 	//OR new vaddr into page_entry
 	page_entry |= vaddr;
@@ -328,7 +331,7 @@ build_page_entry(uint64_t chunk_size, uint64_t owner, bool is_free, bool is_clea
 	page_entry |= owner;
 
 	//If page is free, shift a 1 into the FREE_BIT_POS and OR into page_entry
-	if(is_free){
+	if(!is_free){
 		uint64_t free_bit = 1;
 		free_bit <<= FREE_BIT_POS-1;
 		page_entry |= free_bit;

@@ -37,7 +37,8 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 
 paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
-static paddr_t kernaddr_start = 0x200;
+// static paddr_t kernaddr_start = 0x200;
+static paddr_t kernaddr_end;
 
 paddr_t coremap_paddr;		//Marks starting address of coremap. Should never change after first assignment.
 uint32_t coremap_size;
@@ -48,6 +49,7 @@ uint32_t coremap_size;
 void
 ram_bootstrap(void)
 {
+	// kprintf("in ram_bootstrap\n");
 	size_t ramsize;
 
 	/* Get size of RAM. */
@@ -72,12 +74,48 @@ ram_bootstrap(void)
 	 */
 	firstpaddr = firstfree - MIPS_KSEG0;
 
-	kernaddr_start = firstpaddr - 1;
+	kernaddr_end = firstpaddr - 1;
 
 	coremap_paddr = firstpaddr;
 	coremap_size = ramsize / 4096;
 
 	firstpaddr = firstpaddr + ((ramsize / 4096)*8);
+
+	bzero((void*) PADDR_TO_KVADDR(coremap_paddr), coremap_size);
+	uint64_t num_kern_pages = kernaddr_end / 4096;
+	if(kernaddr_end % 4096 > 0) {
+		num_kern_pages += 1; 
+	}
+
+// build_page_entry(uint64_t chunk_size, uint64_t owner, bool is_free, bool is_clean, bool is_first_chunk, bool is_last_chunk, uint64_t vaddr)
+	uint64_t first_entry = build_page_entry(num_kern_pages, 0, false, false, true, false, PADDR_TO_KVADDR(0));
+	uint64_t mid_entry = build_page_entry(num_kern_pages, 0, false, false, false, false, PADDR_TO_KVADDR(0));
+	uint64_t last_entry = build_page_entry(num_kern_pages, 0, false, false, true, false, PADDR_TO_KVADDR(0));
+
+	uint64_t *cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
+	cm_addr[0] = first_entry;
+
+	for(uint64_t entry = 0; entry < num_kern_pages-1; entry++) {
+		cm_addr[entry] = mid_entry;
+	}
+	cm_addr[num_kern_pages-1] = last_entry;
+
+	uint64_t num_cm_pages = (coremap_size * 8) / 4096;	
+	if(((coremap_size * 8) % 4096) > 0) {
+		num_cm_pages += 1;
+	}
+
+	first_entry = build_page_entry(num_kern_pages, 0, false, false, true, false, PADDR_TO_KVADDR(coremap_paddr));
+	mid_entry = build_page_entry(num_kern_pages, 0, false, false, false, false, PADDR_TO_KVADDR(coremap_paddr));
+	last_entry = build_page_entry(num_kern_pages, 0, false, false, true, false, PADDR_TO_KVADDR(coremap_paddr));
+
+	cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr + ((uint32_t)num_kern_pages) * 8);
+	cm_addr[0] = first_entry;
+
+	for(uint64_t entry = 0; entry < num_cm_pages-1; entry++) {
+		cm_addr[entry] = mid_entry;
+	}
+	cm_addr[num_kern_pages-1] = last_entry;
 
 	// exception handler up until 0x200, 512 bytes
 
