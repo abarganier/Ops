@@ -93,6 +93,11 @@ alloc_kpages(unsigned npages)
 			// If more than 1 page, make sure next chunks are free as well, else set index
 			if(npages > 1) {
 
+				// Make sure we don't move past the coremap bounds
+				if(offset + npages >= coremap_size) {
+					break;
+				}
+
 				uint64_t next_entry;
 
 				for(uint32_t nextpage = 1; nextpage < npages; nextpage++) {
