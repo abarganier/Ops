@@ -75,7 +75,7 @@ ram_bootstrap(void)
 	 */
 	firstpaddr = firstfree - MIPS_KSEG0;
 
-	kernaddr_end = firstpaddr - 1;
+	kernaddr_end = firstpaddr ;
 
 	coremap_paddr = firstpaddr;
 	coremap_size = ramsize / 4096;
