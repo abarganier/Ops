@@ -48,6 +48,33 @@ vm_bootstrap(void)
 	/* Do nothing. */
 }
 
+// static
+// void
+// print_coremap(void) 
+// {
+// 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
+// 	kprintf("\nPrinting coremap, num_pages used = %ull :\n", coremap_used_pages);
+// 	spinlock_acquire(&coremap_lock);
+
+// 	for(uint32_t offset = 0; offset < coremap_size; offset++) {
+// 		kprintf("%d: ", offset);
+// 		if(get_page_is_free(coremap[offset])) {
+// 			kprintf("free, ");
+// 		} else {
+// 			kprintf("not_free, ");
+// 		}
+
+// 		if(get_is_fixed(coremap[offset])) {
+// 			kprintf("fixed, ");
+// 		} else {
+// 			kprintf("not_fixed, ");
+// 		}
+
+// 		kprintf("chunk size: %llu\n", get_chunk_size(coremap[offset]));
+// 	}	
+// 	spinlock_release(&coremap_lock);
+// }
+
 /* Allocate/free some kernel-space virtual pages */
 vaddr_t
 alloc_kpages(unsigned npages)
@@ -94,7 +121,8 @@ alloc_kpages(unsigned npages)
 	}
 
 	if(!found_pages) {
-		panic("Unable to find %d contiguous pages in coremap!\n", npages);
+		spinlock_release(&coremap_lock);
+		return 0;
 	}
 
 	vaddr_t virtual_address = PADDR_TO_KVADDR(first_index*4096);
@@ -156,7 +184,7 @@ free_kpages(vaddr_t addr)
 		}
 	}
 	spinlock_release(&coremap_lock);
-
+	
 	if(not_found) {
 		panic("free_kpages was unable to find the address passed!\n");
 	}
@@ -165,7 +193,10 @@ free_kpages(vaddr_t addr)
 unsigned
 int
 coremap_used_bytes() {
-	return coremap_used_pages * 4096;
+	spinlock_acquire(&coremap_lock);
+	unsigned int bytes = coremap_used_pages * 4096;
+	spinlock_release(&coremap_lock);
+	return bytes;
 }
 
 void
