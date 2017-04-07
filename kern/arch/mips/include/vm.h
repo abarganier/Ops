@@ -123,6 +123,7 @@ extern paddr_t coremap_paddr;	//Marks starting address of coremap
 extern paddr_t firstpaddr;
 extern uint32_t coremap_size;
 extern uint32_t coremap_used_pages;
+extern uint32_t num_fixed_pages;
 
 void ram_bootstrap(void);
 paddr_t ram_stealmem(unsigned long npages);

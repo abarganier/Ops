@@ -37,11 +37,63 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 
 paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
-static paddr_t kernaddr_end;
 
 paddr_t coremap_paddr;		//Marks starting address of coremap. Should never change after first assignment.
 uint32_t coremap_size;
 uint32_t coremap_used_pages;
+uint32_t num_fixed_pages;
+
+static
+void
+setup_coremap(void)
+{
+	bzero((void*) PADDR_TO_KVADDR(coremap_paddr), coremap_size);
+	
+	/*
+	 *	Add coremap entries for pages used by exception handler/kernel
+	 *  coremap_paddr is where the kernel/exc.
+	 */
+	uint64_t num_kern_pages = coremap_paddr / PAGE_SIZE;
+	num_fixed_pages = num_kern_pages;
+	if(coremap_paddr % PAGE_SIZE > 0) {
+		num_kern_pages += 1; 
+		num_fixed_pages += 1;
+	}
+
+	uint64_t first_entry = build_page_entry(num_kern_pages, 0, false, false, true, true, PADDR_TO_KVADDR(0));
+	uint64_t mid_entry = build_page_entry(num_kern_pages, 0, false, false, false, true, PADDR_TO_KVADDR(0));
+
+	uint64_t *cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
+	cm_addr[0] = first_entry;
+	coremap_used_pages++;
+
+	for(uint64_t entry = 1; entry < num_kern_pages; entry++) {
+		cm_addr[entry] = mid_entry;
+		coremap_used_pages++;
+	}
+
+	/*
+	 *	Add coremap entries for pages used by coremap itself
+	 */
+	uint64_t num_cm_pages = (coremap_size * 8) / PAGE_SIZE;	
+	num_fixed_pages += num_cm_pages;
+	if(((coremap_size * 8) % PAGE_SIZE) > 0) {
+		num_cm_pages += 1;
+		num_fixed_pages += 1;
+	}
+
+	first_entry = build_page_entry(num_kern_pages, 0, false, false, true, true, PADDR_TO_KVADDR(coremap_paddr));
+	mid_entry = build_page_entry(num_kern_pages, 0, false, false, false, true, PADDR_TO_KVADDR(coremap_paddr));
+
+	cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr + ((uint32_t)num_kern_pages) * 8);
+	cm_addr[0] = first_entry;
+	coremap_used_pages++;
+
+	for(uint64_t entry = 1; entry < num_cm_pages; entry++) {
+		cm_addr[entry] = mid_entry;
+		coremap_used_pages++;
+	}
+}
 
 /*
  * Called very early in system boot to figure out how much physical
@@ -50,7 +102,6 @@ uint32_t coremap_used_pages;
 void
 ram_bootstrap(void)
 {
-	// kprintf("in ram_bootstrap\n");
 	size_t ramsize;
 
 	/* Get size of RAM. */
@@ -74,55 +125,10 @@ ram_bootstrap(void)
 	 * Convert to physical address.
 	 */
 	firstpaddr = firstfree - MIPS_KSEG0;
-
-	kernaddr_end = firstpaddr ;
-
 	coremap_paddr = firstpaddr;
-	coremap_size = ramsize / 4096;
-
-	firstpaddr = firstpaddr + ((ramsize / 4096)*8);
-
-	bzero((void*) PADDR_TO_KVADDR(coremap_paddr), coremap_size);
-	
-	/*
-	 *	Add coremap entries for pages used by exception handler/kernel
-	 */
-	uint64_t num_kern_pages = kernaddr_end / 4096;
-	if(kernaddr_end % 4096 > 0) {
-		num_kern_pages += 1; 
-	}
-
-	uint64_t first_entry = build_page_entry(num_kern_pages, 0, false, false, true, true, PADDR_TO_KVADDR(0));
-	uint64_t mid_entry = build_page_entry(num_kern_pages, 0, false, false, false, true, PADDR_TO_KVADDR(0));
-
-	uint64_t *cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
-	cm_addr[0] = first_entry;
-	coremap_used_pages++;
-
-	for(uint64_t entry = 1; entry < num_kern_pages; entry++) {
-		cm_addr[entry] = mid_entry;
-		coremap_used_pages++;
-	}
-
-	/*
-	 *	Add coremap entries for pages used by coremap itself
-	 */
-	uint64_t num_cm_pages = (coremap_size * 8) / 4096;	
-	if(((coremap_size * 8) % 4096) > 0) {
-		num_cm_pages += 1;
-	}
-
-	first_entry = build_page_entry(num_kern_pages, 0, false, false, true, true, PADDR_TO_KVADDR(coremap_paddr));
-	mid_entry = build_page_entry(num_kern_pages, 0, false, false, false, true, PADDR_TO_KVADDR(coremap_paddr));
-
-	cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr + ((uint32_t)num_kern_pages) * 8);
-	cm_addr[0] = first_entry;
-	coremap_used_pages++;
-
-	for(uint64_t entry = 1; entry < num_cm_pages; entry++) {
-		cm_addr[entry] = mid_entry;
-		coremap_used_pages++;
-	}
+	coremap_size = ramsize / PAGE_SIZE;
+	firstpaddr = firstpaddr + ((ramsize / PAGE_SIZE)*8);
+	setup_coremap();
 
 	kprintf("%uk physical memory available\n",
 		(lastpaddr-firstpaddr)/1024);
