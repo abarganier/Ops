@@ -177,7 +177,7 @@ free_kpages(vaddr_t addr)
 
 	spinlock_acquire(&coremap_lock);
 
-	if(debug_mode) {
+	if(debug_mode && coremap_used_pages > 75) {
 		kprintf("Entering free_kpages.\ncoremap_used_pages: %u\n", coremap_used_pages);
 	}
 
@@ -207,7 +207,7 @@ free_kpages(vaddr_t addr)
 		}
 	}
 
-	if(debug_mode) {
+	if(debug_mode && coremap_used_pages > 75) {
 		kprintf("Leaving free_kpages.\ncoremap_used_pages: %u\n", coremap_used_pages);
 	}
 
