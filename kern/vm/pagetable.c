@@ -136,9 +136,32 @@ pt_remove(struct pagetable *pt, vaddr_t vaddr)
 }
 
 struct pt_entry *
-pt_get_pte(vaddr_t vaddr)
+pt_get_pte(struct pagetable *pt, vaddr_t vaddr)
 {
-	(void) vaddr;
+	
+	if(pt == NULL || pt->head == NULL){			//Consider doing error checking for vaddr
+		return NULL;
+	}
+
+	bool found = false;
+	struct pagetable *pte_current = pt->head;
+	uint32_t vpn = vaddr >> 12;
+
+	while(pte_current != NULL){
+		//Check current pte for vpn
+		if(pte_current->vpn == vpn){
+			found = true;
+			break;
+		}
+		pte_current = pte_current->next_entry;
+	}
+
+	if(!found){
+		return NULL;
+	}
+
+	return pte_current;
+
 }
 
 struct pt_entry *

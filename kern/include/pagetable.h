@@ -47,9 +47,9 @@ struct pagetable
 
 struct pagetable *pt_create(void);
 int32_t pt_destroy(struct pagetable *);
-int32_t pt_add(vaddr_t);
-int32_t pt_remove(vaddr_t);
-struct pt_entry *pt_get_pte(vaddr_t);
+int32_t pt_add(struct pagetable *, vaddr_t);
+int32_t pt_remove(struct pagetable *, vaddr_t);
+struct pt_entry *pt_get_pte(struct pagetable *, vaddr_t);
 
 
 struct pt_entry
