@@ -38,26 +38,101 @@
 struct pagetable *
 pt_create(void);
 {
+	struct pagetable *pt;
+	pt = kmalloc(sizeof(*pt));
+	if(pt == NULL){
+		return NULL;
+	}
 
+	pt->head = NULL;
+	pt->tail = NULL;
+	return pt;
 }
 
 int32_t 
 pt_destroy(struct pagetable * pt)
 {
-	(void) pt;
+	kfree(pt);
+	return 0;
 }
 
 //Create new PTE
 int32_t 
-pt_add(vaddr_t vaddr)
+pt_add(struct pagetable *pt, vaddr_t vaddr)
 {
-	(void) vaddr;
+	if(pt == NULL){			//Consider doing error checking for vaddr
+		return EINVAL;
+	}
+
+	struct pt_entry *pte = pte_create();
+	if(pte == NULL){
+		return ENOMEM;
+	}
+	
+	//Check for tail of linked list
+	if(pt->tail == NULL){
+		KASSERT(pt->head == NULL);
+		pt->head = pte;
+		pt->tail = pte;
+	}
+	else{
+		KASSERT(pt->head != NULL);
+		pt->tail->next_entry = pte;
+		pt->tail = pte;
+	}
+	pte->vpn = (uint32_t)vaddr_t >> 12;
+	return 0;
 }
 
 int32_t 
-pt_remove(vaddr_t vaddr)
+pt_remove(struct pagetable *pt, vaddr_t vaddr)
 {
-	(void) vaddr;
+	if(pt == NULL){			//Consider doing error checking for vaddr
+		return EINVAL;
+	}
+
+	if(pt->head == NULL){
+		return EPTEMPTY;
+	}
+	KASSERT(pt->tail != NULL);
+	
+	bool found = false;
+	struct pagetable *pte_current = pt->head;
+	struct pagetable *pte_prev = NULL;
+	uint32_t vpn = vaddr >> 12;
+
+	while(pte_current != NULL){
+		//Check current pte for vpn
+		if(pte_current->vpn == vpn){
+			if(pte_prev != NULL){
+				pte_prev->next_entry = pte_current->next_entry;				
+			}
+
+			found = true;
+			break;
+		}
+		pte_prev = pte_current;
+		pte_current = pte_current->next_entry;
+	}
+
+	if(!found){
+		return EBADVPN;
+	}
+
+	if(pte_current == pt->head && pte_current == pt->tail){
+		pt->head = NULL;
+		pt->tail = NULL;
+	}
+	else if(pte_current == pt->tail){
+		pt->tail = pte_prev;
+	}
+	else if(pte_current == pt->head){
+		pt->head = pte_current->next_entry;
+	}
+
+	pte_destroy(pte_current);
+
+	return 0;
 }
 
 struct pt_entry *
@@ -69,12 +144,21 @@ pt_get_pte(vaddr_t vaddr)
 struct pt_entry *
 pte_create(void)
 {
+	struct pt_entry *pte;
+	pte = kmalloc(sizeof(*pte));
+	if(pte == NULL){
+		return NULL;
+	}
+	pte->next_entry = NULL;
+	pte->vpn = NULL;
 
+	return pte;
 }
 
 int32_t 
 pte_destroy(struct pt_entry *pte)
 {
-	(void) pte;
+	kfree(pte);
+	return 0;
 }
 
