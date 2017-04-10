@@ -118,7 +118,30 @@ int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 
+/*
+ *  Supporting structure for addrspace struct. Essentially a LinkedList to
+ *  keep track of memory regions defined in as_define_region.
+ */ 
 
+struct region_list {
+  struct mem_region *head;
+  struct mem_region *tail;
+};
+
+struct region_list *region_list_create(void);
+void region_list_destroy(struct region_list *);
+void add_region(vaddr_t, size_t, int, int, int);
+bool is_valid_region(vaddr_t, int); 
+
+struct mem_region {
+  struct mem_region *next;
+  vaddr_t start_addr; 
+  size_t size;
+  char perms; 
+}; 
+
+struct mem_region *mem_region_create(void);
+void mem_region_destroy(struct mem_region *);
 /*
  * Functions in loadelf.c
  *    load_elf - load an ELF user program executable into the current

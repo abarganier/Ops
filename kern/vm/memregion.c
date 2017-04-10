@@ -27,41 +27,65 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _PAGETABLE_H_
-#define _PAGETABLE_H_
+#include <types.h>
+#include <kern/errno.h>
+#include <lib.h>
+#include <addrspace.h>
+#include <vm.h>
+#include <proc.h>
 
 /*
- * PAGE TABLE structure and operations.
+ * This file contains the implementation of methods supporting the 
+ * region_list struct and the mem_region struct (a dependency of 
+ * region_list).
  */
 
-
-#include <vm.h>
-#include <addrspace.h>
-
-struct pagetable 
+/*
+ *	region_list methods
+ */ 
+struct region_list *
+region_list_create(void)
 {
-	struct pt_entry *head;
-	struct pt_entry *tail;
+	return NULL;
+}
 
-};
-
-struct pagetable *pt_create(void);
-int32_t pt_destroy(struct pagetable *);
-int32_t pt_add(struct pagetable *, vaddr_t);
-int32_t pt_remove(struct pagetable *, vaddr_t);
-struct pt_entry *pt_get_pte(struct pagetable *, vaddr_t);
-
-
-struct pt_entry
+void 
+region_list_destroy(struct region_list *list)
 {
-	struct pt_entry *next_entry;
-	uint32_t vpn;
-
-};
-
-struct pt_entry *pte_create(void);
-int32_t pte_destroy(struct pt_entry *);
+	(void)list;
+}
 
 
+void 
+add_region(vaddr_t vaddr, size_t size, int readable, int writable, int executable)
+{
+	(void)vaddr;
+	(void)size;
+	(void)readable;
+	(void)writable;
+	(void)executable;
+}
 
-#endif /* _PAGETABLE_H_ */
+bool 
+is_valid_region(vaddr_t vaddr, int permissions)
+{
+	(void)vaddr;
+	(void)permissions;
+	return false;
+}
+
+/*
+ *	mem_region methods;
+ */
+
+struct mem_region *
+mem_region_create(void)
+{
+	return NULL;
+}
+
+void 
+mem_region_destroy(struct mem_region *region)
+{
+	(void)region;
+}

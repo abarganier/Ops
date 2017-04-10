@@ -36,7 +36,7 @@
 #include <pagetable.h>
 
 struct pagetable *
-pt_create(void);
+pt_create(void)
 {
 	struct pagetable *pt;
 	pt = kmalloc(sizeof(*pt));
@@ -80,7 +80,7 @@ pt_add(struct pagetable *pt, vaddr_t vaddr)
 		pt->tail->next_entry = pte;
 		pt->tail = pte;
 	}
-	pte->vpn = (uint32_t)vaddr_t >> 12;
+	pte->vpn = (uint32_t)vaddr >> 12;
 	return 0;
 }
 
@@ -97,8 +97,8 @@ pt_remove(struct pagetable *pt, vaddr_t vaddr)
 	KASSERT(pt->tail != NULL);
 	
 	bool found = false;
-	struct pagetable *pte_current = pt->head;
-	struct pagetable *pte_prev = NULL;
+	struct pt_entry *pte_current = pt->head;
+	struct pt_entry *pte_prev = NULL;
 	uint32_t vpn = vaddr >> 12;
 
 	while(pte_current != NULL){
@@ -144,7 +144,7 @@ pt_get_pte(struct pagetable *pt, vaddr_t vaddr)
 	}
 
 	bool found = false;
-	struct pagetable *pte_current = pt->head;
+	struct pt_entry *pte_current = pt->head;
 	uint32_t vpn = vaddr >> 12;
 
 	while(pte_current != NULL){
@@ -173,7 +173,7 @@ pte_create(void)
 		return NULL;
 	}
 	pte->next_entry = NULL;
-	pte->vpn = NULL;
+	pte->vpn = 0;
 
 	return pte;
 }
