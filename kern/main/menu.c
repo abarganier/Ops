@@ -586,6 +586,8 @@ static const char *testmenu[] = {
 	"[tt1] Thread test 1                 ",
 	"[tt2] Thread test 2                 ",
 	"[tt3] Thread test 3                 ",
+	"[ptt1] Pagetable test 1			 ",
+	
 #if OPT_NET
 	"[net] Network test                  ",
 #endif
@@ -733,6 +735,10 @@ static struct {
 	{ "km3",	kmalloctest3 },
 	{ "km4",	kmalloctest4 },
 	{ "km5",	kmalloctest5 },
+
+	/* pagetable test*/
+	{ "ptt1",	pagetabletest },
+
 #if OPT_NET
 	{ "net",	nettest },
 #endif
