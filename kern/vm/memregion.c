@@ -46,32 +46,119 @@
 struct region_list *
 region_list_create(void)
 {
-	return NULL;
+	struct region_list *new_list;
+	new_list = kmalloc(sizeof(*new_list));
+	if(new_list == NULL) {
+		return NULL;
+	}
+	new_list->head = NULL;
+	new_list->tail = NULL;
+	return new_list;
+}
+
+static
+void
+clear_region_entries(struct region_list *list)
+{
+	if(list == NULL || list->head == NULL){
+		return;
+	}
+
+	struct mem_region *current = list->head;
+
+	while(current != NULL){
+		struct mem_region *to_destroy = current;
+		current = current->next;
+		mem_region_destroy(to_destroy);
+	}
 }
 
 void 
 region_list_destroy(struct region_list *list)
 {
-	(void)list;
-}
+	if(list == NULL) {
+		panic("Tried to free a NULL region_list!\n");
+	}
 
-
-void 
-add_region(vaddr_t vaddr, size_t size, int readable, int writable, int executable)
-{
-	(void)vaddr;
-	(void)size;
-	(void)readable;
-	(void)writable;
-	(void)executable;
+	if(list->head == NULL) {
+		KASSERT(list->tail == NULL);
+		kfree(list);
+		return;
+	} 
+	
+	clear_region_entries(list);
+	kfree(list);
 }
 
 bool 
-is_valid_region(vaddr_t vaddr, int permissions)
+add_region(struct region_list *list, vaddr_t vaddr, size_t size, int readable, int writable, int executable)
 {
-	(void)vaddr;
+	if(list == NULL) {
+		panic("Tried to add an mem_region to a NULL region_list!\n");
+		return false;
+	}
+
+	struct mem_region *new_region = mem_region_create();
+	if(new_region == NULL) {
+		return false;
+	}
+
+	new_region->next = NULL;
+	new_region->start_addr = vaddr;
+	new_region->size = size;
+
+	// TODO - Figure out how to correctly set permissions
+	new_region->perms = (char) (readable | writable | executable);
+
+	if(list->head == NULL) {
+		KASSERT(list->tail == NULL);
+		list->head = new_region;
+		list->tail = new_region;
+	} else {
+		list->tail->next = new_region;
+		list->tail = new_region;
+	}
+
+	return true;
+}	
+
+static
+bool
+falls_in_region(struct mem_region *region, vaddr_t vaddr)
+{
+	return (vaddr >= region->start_addr) && (vaddr < region->start_addr + region->size);
+}
+
+static
+bool
+valid_perms(struct mem_region *region, int permissions)
+{
+	(void)region;
 	(void)permissions;
-	return false;
+	// TODO - Still unclear how we're setting/checking permissions from int -> char
+	return true;
+}
+
+
+bool 
+is_valid_region(struct region_list *list, vaddr_t vaddr, int permissions)
+{
+	if(list == NULL || list->head == NULL) {
+		return false;
+	}
+
+	struct mem_region *current = list->head;
+	bool found_valid_region = false;
+	
+	while(current != NULL) {
+		if(falls_in_region(current, vaddr) && valid_perms(current, permissions)) {
+			found_valid_region = true;
+			break;
+		}
+		current = current->next;
+	}
+	
+	return found_valid_region;
 }
 
 /*
@@ -81,11 +168,25 @@ is_valid_region(vaddr_t vaddr, int permissions)
 struct mem_region *
 mem_region_create(void)
 {
-	return NULL;
+	struct mem_region *new_region;
+	new_region = kmalloc(sizeof(*new_region));
+	if(new_region == NULL) {
+		return NULL;
+	}
+
+	new_region->next = NULL;
+	new_region->start_addr = 0;
+	new_region->size = 0;
+	new_region->perms = '\0';
+
+	return new_region;
 }
 
 void 
 mem_region_destroy(struct mem_region *region)
 {
-	(void)region;
+	if(region == NULL) {
+		panic("Tried to free a NULL mem_region!\n");
+	}
+	kfree(region);
 }
