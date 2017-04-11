@@ -169,26 +169,7 @@ pagetabletest(int nargs, char **args)
 	}
 
 	
-	//Test pte_destroy functionality (FAILING)
-	kprintf("Testing pte_destroy\n");
 	pte_destroy(pte);
-	// if(pte == NULL){
-	// 	kprintf("PTE was successfully destroyed\n");
-	// }
-	// else{
-	// 	kprintf("PTE was not successfully destroyed\n");
-	// }
-	pte->vpn = v1 >> 12;
-	if(pte->vpn == v1 >> 12){
-		kprintf("PTE_DESTROY FAIL\n");
-	}
-	else{
-		kprintf("PTE_DESTROY SUCCESS\n");
-	}
-
-	//Test pt_destroy functionality
-
-
 
 
 
