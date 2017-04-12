@@ -173,7 +173,5 @@ pagetabletest(int nargs, char **args)
 
 
 
-
-
 	return 0;
 }

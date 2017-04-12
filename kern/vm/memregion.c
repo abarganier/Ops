@@ -107,8 +107,9 @@ add_region(struct region_list *list, vaddr_t vaddr, size_t size, int readable, i
 	new_region->start_addr = vaddr;
 	new_region->size = size;
 
-	// TODO - Figure out how to correctly set permissions
-	new_region->perms = (char) (readable | writable | executable);
+	new_region->readable = readable > 0 ? true : false;
+	new_region->writable = writable > 0 ? true : false;
+	new_region->readable = executable > 0 ? true : false;s
 
 	if(list->head == NULL) {
 		KASSERT(list->tail == NULL);
@@ -133,10 +134,21 @@ static
 bool
 valid_perms(struct mem_region *region, int permissions)
 {
-	(void)region;
-	(void)permissions;
-	// TODO - Still unclear how we're setting/checking permissions from int -> char
-	return true;
+	if(permissions = VM_FAULT_READONLY) {
+		kprintf("WARNING: valid_perms called with a VM_FAULT_READONLY!\n");
+	}
+
+	if(permissions == VM_FAULT_READ) {
+		return region->readable;
+	}
+
+	if(permissions == VM_FAULT_WRITE) {
+		return region->writable;
+	}
+
+	kprintf("WARNING: valid_perms called with unknown permissions code: %d\n", permissions);
+
+	return false;
 }
 
 

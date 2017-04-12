@@ -137,7 +137,9 @@ struct mem_region {
   struct mem_region *next;
   vaddr_t start_addr; 
   size_t size;
-  char perms; 
+  bool writeable;
+  bool readable;
+  bool executable;
 }; 
 
 struct mem_region *mem_region_create(void);
