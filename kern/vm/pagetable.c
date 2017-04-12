@@ -49,9 +49,27 @@ pt_create(void)
 	return pt;
 }
 
-int32_t 
-pt_destroy(struct pagetable * pt)
+static
+void
+pt_cleanup_entries(struct pagetable *pt)
 {
+	if(pt == NULL || pt->head == NULL){
+		return;
+	}
+
+	struct pt_entry *current = pt->head;
+
+	while(current != NULL){
+		struct pt_entry *to_destroy = current;
+		current = current->next_entry;
+		pte_destroy(to_destroy);
+	}
+}
+
+int32_t 
+pt_destroy(struct pagetable *pt)
+{
+	pt_cleanup_entries(pt);
 	kfree(pt);
 	return 0;
 }

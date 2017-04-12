@@ -91,7 +91,7 @@ region_list_destroy(struct region_list *list)
 }
 
 bool 
-add_region(struct region_list *list, vaddr_t vaddr, size_t size, int readable, int writable, int executable)
+add_region(struct region_list *list, vaddr_t vaddr, size_t size, int readable, int writeable, int executable)
 {
 	if(list == NULL) {
 		panic("Tried to add an mem_region to a NULL region_list!\n");
@@ -108,8 +108,8 @@ add_region(struct region_list *list, vaddr_t vaddr, size_t size, int readable, i
 	new_region->size = size;
 
 	new_region->readable = readable > 0 ? true : false;
-	new_region->writable = writable > 0 ? true : false;
-	new_region->readable = executable > 0 ? true : false;s
+	new_region->writeable = writeable > 0 ? true : false;
+	new_region->readable = executable > 0 ? true : false;
 
 	if(list->head == NULL) {
 		KASSERT(list->tail == NULL);
@@ -134,7 +134,7 @@ static
 bool
 valid_perms(struct mem_region *region, int permissions)
 {
-	if(permissions = VM_FAULT_READONLY) {
+	if(permissions == VM_FAULT_READONLY) {
 		kprintf("WARNING: valid_perms called with a VM_FAULT_READONLY!\n");
 	}
 
@@ -143,7 +143,7 @@ valid_perms(struct mem_region *region, int permissions)
 	}
 
 	if(permissions == VM_FAULT_WRITE) {
-		return region->writable;
+		return region->writeable;
 	}
 
 	kprintf("WARNING: valid_perms called with unknown permissions code: %d\n", permissions);
@@ -189,7 +189,9 @@ mem_region_create(void)
 	new_region->next = NULL;
 	new_region->start_addr = 0;
 	new_region->size = 0;
-	new_region->perms = '\0';
+	new_region->writeable = false;
+	new_region->readable = false;
+	new_region->executable = false;
 
 	return new_region;
 }

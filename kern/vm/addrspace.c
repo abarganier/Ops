@@ -50,9 +50,24 @@ as_create(void)
 		return NULL;
 	}
 
-	/*
-	 * Initialize as needed.
-	 */
+	as->pt = pt_create();
+	if(as->pt == NULL) {
+		kfree(as);
+		return NULL;
+	}
+
+	as->regions = region_list_create();
+	if(as->regions == NULL) {
+		kfree(as->pt);
+		kfree(as);
+		return NULL;
+	}
+
+	as->heap_start = 0;
+	as->heap_size = 0;
+
+	as->stack_start = 0;
+	as->stack_size = 0;
 
 	return as;
 }

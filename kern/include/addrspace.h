@@ -36,6 +36,7 @@
 
 
 #include <vm.h>
+#include <pagetable.h>
 #include "opt-dumbvm.h"
 
 struct vnode;
@@ -59,6 +60,12 @@ struct addrspace {
         paddr_t as_stackpbase;
 #else
         /* Put stuff here for your VM system */
+        struct pagetable *pt;
+        struct region_list *regions;
+        vaddr_t heap_start;
+        size_t heap_size;
+        vaddr_t stack_start;
+        size_t stack_size;
 #endif
 };
 
@@ -135,7 +142,7 @@ bool is_valid_region(struct region_list *, vaddr_t, int);
 
 struct mem_region {
   struct mem_region *next;
-  vaddr_t start_addr; 
+  vaddr_t start_addr;
   size_t size;
   bool writeable;
   bool readable;
