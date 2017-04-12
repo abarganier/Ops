@@ -59,7 +59,6 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
-        /* Put stuff here for your VM system */
         struct pagetable *pt;
         struct region_list *regions;
         vaddr_t heap_start;
@@ -144,9 +143,9 @@ struct mem_region {
   struct mem_region *next;
   vaddr_t start_addr;
   size_t size;
-  bool writeable;
-  bool readable;
-  bool executable;
+  // bool writeable;
+  // bool readable;
+  // bool executable;
 }; 
 
 struct mem_region *mem_region_create(void);

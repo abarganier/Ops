@@ -93,6 +93,9 @@ region_list_destroy(struct region_list *list)
 bool 
 add_region(struct region_list *list, vaddr_t vaddr, size_t size, int readable, int writeable, int executable)
 {
+	(void)readable;
+	(void)writeable;
+	(void)executable;
 	if(list == NULL) {
 		panic("Tried to add an mem_region to a NULL region_list!\n");
 		return false;
@@ -107,9 +110,9 @@ add_region(struct region_list *list, vaddr_t vaddr, size_t size, int readable, i
 	new_region->start_addr = vaddr;
 	new_region->size = size;
 
-	new_region->readable = readable > 0 ? true : false;
-	new_region->writeable = writeable > 0 ? true : false;
-	new_region->readable = executable > 0 ? true : false;
+	// new_region->readable = readable > 0 ? true : false;
+	// new_region->writeable = writeable > 0 ? true : false;
+	// new_region->readable = executable > 0 ? true : false;
 
 	if(list->head == NULL) {
 		KASSERT(list->tail == NULL);
@@ -130,31 +133,32 @@ falls_in_region(struct mem_region *region, vaddr_t vaddr)
 	return (vaddr >= region->start_addr) && (vaddr < region->start_addr + region->size);
 }
 
-static
-bool
-valid_perms(struct mem_region *region, int permissions)
-{
-	if(permissions == VM_FAULT_READONLY) {
-		kprintf("WARNING: valid_perms called with a VM_FAULT_READONLY!\n");
-	}
+// static
+// bool
+// valid_perms(struct mem_region *region, int permissions)
+// {
+// 	if(permissions == VM_FAULT_READONLY) {
+// 		kprintf("WARNING: valid_perms called with a VM_FAULT_READONLY!\n");
+// 	}
 
-	if(permissions == VM_FAULT_READ) {
-		return region->readable;
-	}
+// 	if(permissions == VM_FAULT_READ) {
+// 		return region->readable;
+// 	}
 
-	if(permissions == VM_FAULT_WRITE) {
-		return region->writeable;
-	}
+// 	if(permissions == VM_FAULT_WRITE) {
+// 		return region->writeable;
+// 	}
 
-	kprintf("WARNING: valid_perms called with unknown permissions code: %d\n", permissions);
+// 	kprintf("WARNING: valid_perms called with unknown permissions code: %d\n", permissions);
 
-	return false;
-}
+// 	return false;
+// }
 
 
 bool 
 is_valid_region(struct region_list *list, vaddr_t vaddr, int permissions)
 {
+	(void)permissions;
 	if(list == NULL || list->head == NULL) {
 		return false;
 	}
@@ -163,7 +167,7 @@ is_valid_region(struct region_list *list, vaddr_t vaddr, int permissions)
 	bool found_valid_region = false;
 	
 	while(current != NULL) {
-		if(falls_in_region(current, vaddr) && valid_perms(current, permissions)) {
+		if(falls_in_region(current, vaddr) /*&& valid_perms(current, permissions)*/) {
 			found_valid_region = true;
 			break;
 		}
@@ -189,9 +193,9 @@ mem_region_create(void)
 	new_region->next = NULL;
 	new_region->start_addr = 0;
 	new_region->size = 0;
-	new_region->writeable = false;
-	new_region->readable = false;
-	new_region->executable = false;
+	// new_region->writeable = false;
+	// new_region->readable = false;
+	// new_region->executable = false;
 
 	return new_region;
 }
