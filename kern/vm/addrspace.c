@@ -95,10 +95,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 void
 as_destroy(struct addrspace *as)
 {
-	/*
-	 * Clean up as needed.
-	 */
-
+	pt_destroy(as->pt);
+	region_list_destroy(as->regions);
 	kfree(as);
 }
 
