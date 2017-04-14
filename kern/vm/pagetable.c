@@ -81,43 +81,19 @@ pt_destroy(struct pagetable *pt)
 	return 0;
 }
 
-int32_t
-pt_create_region(struct addrspace *as, struct mem_region *region)
-{
-	vaddr_t start_addr = region->start_addr;
-	size_t memsize = region->size;
-	size_t alloc = 0;
-	int32_t err = 0;
-
-	while(memsize > 0) {
-		err = pt_add(as->pt, start_addr, &alloc);
-		if(err) {
-			kprintf("ERROR: pt_add returned error %d in pt_create_region\n", err);
-			return err;
-		}
-
-		// Careful of overflow subtracting unsigned values
-		if(alloc > memsize) {
-			break;
-		}
-		start_addr += alloc;
-		memsize -= alloc;
-	}
-
-	return err;
-}
-
-int32_t 
-pt_add(struct pagetable *pt, vaddr_t vaddr, size_t *alloc)
+vaddr_t 
+pt_add(struct pagetable *pt, vaddr_t vaddr)
 {
 
 	if(pt == NULL){
 		return EINVAL;
 	}
 
+	vaddr_t vpn = 0;
+
 	struct pt_entry *old_pte = pt_get_pte(pt, vaddr);
 	// If existing page doesn't exist, allocate it.
-	// If it does exist, set alloc to the number of memory avail in that page
+	// If it does exist, return vpn of existing page
 	if(old_pte == NULL) {
 
 		struct pt_entry *pte = pte_create();
@@ -125,7 +101,11 @@ pt_add(struct pagetable *pt, vaddr_t vaddr, size_t *alloc)
 			return ENOMEM;
 		}
 		
-		//Check for tail of linked list
+		pte->vpn = get_vpn(vaddr);
+		vpn = pte->vpn;
+		
+		// ALLOCATE AND SET PHYSICAL ADDRESS HERE
+
 		if(pt->tail == NULL){
 			KASSERT(pt->head == NULL);
 			pt->head = pte;
@@ -136,15 +116,10 @@ pt_add(struct pagetable *pt, vaddr_t vaddr, size_t *alloc)
 			pt->tail = pte;
 		}
 
-		pte->vpn = get_vpn(vaddr);
-
-		*alloc = PAGE_SIZE;
-
 	} else {
-		*alloc = (old_pte->vpn + PAGE_SIZE) - vaddr;
+		vpn = old_pte->vpn;
 	}
-
-	return 0;
+	return vpn;
 }
 
 int32_t 
@@ -224,7 +199,6 @@ pt_get_pte(struct pagetable *pt, vaddr_t vaddr)
 	}
 
 	return pte_current;
-
 }
 
 struct pt_entry *

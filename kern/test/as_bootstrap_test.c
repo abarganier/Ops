@@ -91,27 +91,6 @@ verify_regions(struct addrspace *as, size_t num_regions, size_t rsize, vaddr_t s
 	return 0;
 }
 
-/*
- *	Checks the page table of an addrspace and makes sure it's length is equal to num_pages
- */
-static
-int
-verify_num_pages(struct addrspace *as, int num_pages)
-{
-	struct pt_entry *current = as->pt->head;
-	int count = 0;
-
-	while(current != NULL) {
-		count += 1;
-		current = current->next_entry;
-	}
-	if(count != num_pages) {
-		kprintf("ERROR: verify_num_pages failed, got %d, expected %d\n", count, num_pages);
-	}
-
-	return count == num_pages ? 0 : 1;
-}
-
 // Define 2 memory regions taking up 1 page, expect 3 virtual pages to be allocated
 static
 int
@@ -126,7 +105,6 @@ as_test1(void)
 	vaddr_t start_addr = 0x00040000;
 	size_t region_size = PAGE_SIZE/2;
 	size_t num_regions = 2;
-	size_t exp_vpages = 3;
 
 	// Add two mem_regions of 2048 bytes
 	add_regions(as, num_regions, region_size, start_addr);
@@ -136,102 +114,6 @@ as_test1(void)
 		return 1;
 	}
 
-	as_prepare_load(as);
-	err = verify_num_pages(as, exp_vpages);
-	if(err) {
-		kprintf("ERROR: as_test1 failed the verify_num_pages check\n");
-		return 1;
-	}
-	return 0;
-}
-
-// Define no memory regions, expect 2 virtual pages to be allocated
-static
-int
-as_test2(void) 
-{
-	struct addrspace *as = as_create();
-	if(as == NULL) {
-		panic("as_create() returned NULL, ENOMEM error!\n");
-	}
-
-	int err = 0;
-	size_t exp_vpages = 2;
-
-	as_prepare_load(as);
-	err = verify_num_pages(as, exp_vpages);
-	if(err) {
-		kprintf("ERROR: as_test2 failed the verify_num_pages check\n");
-		return 1;
-	}
-	return 0;
-}
-
-// Define 3 memory regions taking up 1.5 of a page, expect 4 virtual pages to be allocated
-static
-int
-as_test3(void) 
-{
-	struct addrspace *as = as_create();
-	if(as == NULL) {
-		panic("as_create() returned NULL, ENOMEM error!\n");
-	}
-
-	int err = 0;
-	vaddr_t start_addr = 0x00040000;
-	size_t region_size = PAGE_SIZE/2;
-	size_t num_regions = 3;
-	size_t exp_vpages = 4;
-
-	// Add two mem_regions of 1024 bytes
-	add_regions(as, num_regions, region_size, start_addr);
-	err = verify_regions(as, num_regions, region_size, start_addr);
-	if(err) {
-		kprintf("ERROR: as_test3 failed the verify_regions check\n");
-		return 1;
-	}
-
-	as_prepare_load(as);
-	err = verify_num_pages(as, exp_vpages);
-	if(err) {
-		kprintf("ERROR: as_test3 failed the verify_num_pages check\n");
-		return 1;
-	}
-	return 0;
-}
-
-// Define 2 memory regions, one taking up 1.5 of a page and the other taking 1 page
-// expect 4 virtual pages to be allocated
-static
-int
-as_test4(void) 
-{
-	struct addrspace *as = as_create();
-	if(as == NULL) {
-		panic("as_create() returned NULL, ENOMEM error!\n");
-	}
-
-	int err = 0;
-	vaddr_t start_addr = 0x00040000;
-	size_t region_size = PAGE_SIZE + (PAGE_SIZE/2);
-	size_t num_regions = 1;
-	size_t exp_vpages = 5;
-
-	// Add first mem_region
-	add_regions(as, num_regions, region_size, start_addr);
-
-	start_addr += region_size;
-	region_size = PAGE_SIZE;
-
-	// Add second mem_region
-	add_regions(as, num_regions, region_size, start_addr);
-
-	as_prepare_load(as);
-	err = verify_num_pages(as, exp_vpages);
-	if(err) {
-		kprintf("ERROR: as_test4 failed the verify_num_pages check\n");
-		return 1;
-	}
 	return 0;
 }
 
@@ -275,21 +157,6 @@ as_bootstrap_test(int nargs, char **args)
 	err = as_test1();
 	if(err) {
 		panic("as_test1 failed!\n");
-	}
-
-	err = as_test2();
-	if(err) {
-		panic("as_test2 failed!\n");
-	}
-
-	err = as_test3();
-	if(err) {
-		panic("as_test3 failed!\n");
-	}
-
-	err = as_test4();
-	if(err) {
-		panic("as_test4 failed!\n");
 	}
 
 	err = overlap_region_test();
