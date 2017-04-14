@@ -120,6 +120,7 @@ int nettest(int, char **);
 
 /* Pagetable test */
 int pagetabletest(int, char**);
+int as_bootstrap_test(int, char**);
 
 /* Routine for running a user-level program. */
 int runprogram(char *progname);

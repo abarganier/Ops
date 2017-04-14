@@ -586,7 +586,8 @@ static const char *testmenu[] = {
 	"[tt1] Thread test 1                 ",
 	"[tt2] Thread test 2                 ",
 	"[tt3] Thread test 3                 ",
-	"[ptt1] Pagetable test 1			 ",
+	"[ptt1] Pagetable test 1             ",
+	"[asb1] addrspace bootstrap test 1   ",
 	
 #if OPT_NET
 	"[net] Network test                  ",
@@ -738,6 +739,7 @@ static struct {
 
 	/* pagetable test*/
 	{ "ptt1",	pagetabletest },
+	{ "asb1",	as_bootstrap_test },
 
 #if OPT_NET
 	{ "net",	nettest },

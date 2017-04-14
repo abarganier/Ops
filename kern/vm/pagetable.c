@@ -34,6 +34,14 @@
 #include <vm.h>
 #include <proc.h>
 
+static
+vaddr_t
+get_vpn(vaddr_t vaddr) {
+	vaddr_t vpn = vaddr >> 12;
+	vpn = vpn << 12;
+	return vpn;
+}
+
 struct pagetable *
 pt_create(void)
 {
@@ -86,7 +94,12 @@ pt_create_region(struct addrspace *as, struct mem_region *region)
 		if(err) {
 			kprintf("ERROR: pt_add returned error %d in pt_create_region\n", err);
 			return err;
-		} 
+		}
+
+		// Careful of overflow subtracting unsigned values
+		if(alloc > memsize) {
+			break;
+		}
 		start_addr += alloc;
 		memsize -= alloc;
 	}
@@ -122,7 +135,9 @@ pt_add(struct pagetable *pt, vaddr_t vaddr, size_t *alloc)
 			pt->tail->next_entry = pte;
 			pt->tail = pte;
 		}
-		pte->vpn = (vaddr_t)vaddr >> 12;
+
+		pte->vpn = get_vpn(vaddr);
+
 		*alloc = PAGE_SIZE;
 
 	} else {
@@ -147,7 +162,7 @@ pt_remove(struct pagetable *pt, vaddr_t vaddr)
 	bool found = false;
 	struct pt_entry *pte_current = pt->head;
 	struct pt_entry *pte_prev = NULL;
-	uint32_t vpn = vaddr >> 12;
+	vaddr_t vpn = get_vpn(vaddr);
 
 	while(pte_current != NULL){
 		//Check current pte for vpn
@@ -193,7 +208,7 @@ pt_get_pte(struct pagetable *pt, vaddr_t vaddr)
 
 	bool found = false;
 	struct pt_entry *pte_current = pt->head;
-	uint32_t vpn = vaddr >> 12;
+	vaddr_t vpn = get_vpn(vaddr);
 
 	while(pte_current != NULL){
 		//Check current pte for vpn

@@ -126,8 +126,7 @@ int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 /*
  *  Supporting structure for addrspace struct. Essentially a LinkedList to
  *  keep track of memory regions defined in as_define_region.
- */ 
-
+ */
 struct region_list {
   struct mem_region *head;
   struct mem_region *tail;
@@ -139,6 +138,9 @@ bool add_region(struct region_list *, vaddr_t, size_t, int, int, int);
 bool is_valid_region(struct region_list *, vaddr_t, int);
 bool region_available(struct region_list *, vaddr_t, size_t);
 
+/*
+ *  Node struct for the region_list 
+ */
 struct mem_region {
   struct mem_region *next;
   vaddr_t start_addr;
@@ -159,7 +161,6 @@ struct pagetable
 {
   struct pt_entry *head;
   struct pt_entry *tail;
-
 };
 
 struct pagetable *pt_create(void);
@@ -169,12 +170,13 @@ int32_t pt_create_region(struct addrspace *, struct mem_region *);
 int32_t pt_remove(struct pagetable *, vaddr_t);
 struct pt_entry *pt_get_pte(struct pagetable *, vaddr_t);
 
-
+/*
+ *  Node struct for the pagetable
+ */
 struct pt_entry
 {
   struct pt_entry *next_entry;
-  uint32_t vpn;
-
+  vaddr_t vpn;
 };
 
 struct pt_entry *pte_create(void);

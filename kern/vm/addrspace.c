@@ -182,19 +182,73 @@ as_load_regions(struct addrspace *as)
 	while(current != NULL) {
 		err = pt_create_region(as, current);
 		if(err) {
-			return err;
+			break;
 		}
+		current = current->next;
 	}
 
 	return err;
 }
 
+static
+vaddr_t
+get_heap_start(struct addrspace *as)
+{
+	vaddr_t max = 0;
+	vaddr_t region_end = 0;
+	struct mem_region *current = as->regions->head;
+	while(current != NULL) {
+		region_end = current->start_addr + current->size;
+		if(region_end > max) {
+			max = region_end;
+		}
+		current = current->next;
+	}
+	return max;
+}
+
+static
+int32_t
+as_define_heap(struct addrspace *as)
+{
+	vaddr_t heap_start = 0;
+	heap_start = get_heap_start(as);
+
+	// We can create a temp mem region for the heap and 
+	// use existing functionality
+	struct mem_region *heap_region = mem_region_create();
+	if(heap_region == NULL) {
+		return ENOMEM;
+	}
+
+	heap_region->start_addr = heap_start;
+	heap_region->size = PAGE_SIZE * 2;
+
+	int32_t err = 0;
+	err = pt_create_region(as, heap_region);
+
+	mem_region_destroy(heap_region);
+	
+	return err;
+}
 
 int
 as_prepare_load(struct addrspace *as)
 {
-	as_load_regions(as);
-	return EFAULT;
+	int32_t err = 0;
+
+	// PERMISSIONS: DEACTIVATE HERE
+	err = as_load_regions(as);
+	if(err) {
+		return err;
+	}
+
+	err = as_define_heap(as);
+	if(err) {
+		return err;
+	}
+
+	return 0;
 }
 
 int

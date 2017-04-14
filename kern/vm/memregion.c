@@ -39,7 +39,7 @@
  * region_list struct and the mem_region struct (a dependency of 
  * region_list).
  */
-static bool debug_regions = true;
+static bool debug_regions = false;
 
 /*
  *	region_list methods
