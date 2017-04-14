@@ -30,9 +30,13 @@
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
+#include <spl.h>
+#include <cpu.h>
+#include <proc.h>
+#include <current.h>
+#include <mips/tlb.h>
 #include <addrspace.h>
 #include <vm.h>
-#include <proc.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -100,23 +104,26 @@ as_destroy(struct addrspace *as)
 	kfree(as);
 }
 
+
 void
 as_activate(void)
 {
+	int i, spl;
 	struct addrspace *as;
 
 	as = proc_getas();
 	if (as == NULL) {
-		/*
-		 * Kernel thread without an address space; leave the
-		 * prior address space in place.
-		 */
 		return;
 	}
 
-	/*
-	 * Write this.
-	 */
+	/* Disable interrupts on this CPU while frobbing the TLB. */
+	spl = splhigh();
+
+	for (i=0; i<NUM_TLB; i++) {
+		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+	}
+
+	splx(spl);
 }
 
 void
@@ -163,6 +170,15 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 
 	return success ? 0 : MEMOVLP;
 }
+
+// static
+// bool
+// as_load_regions(struct addrspace *as)
+// {
+// 	(void)as;
+// 	return false;
+// }
+
 
 int
 as_prepare_load(struct addrspace *as)

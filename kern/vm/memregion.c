@@ -39,6 +39,7 @@
  * region_list struct and the mem_region struct (a dependency of 
  * region_list).
  */
+static bool debug_regions = true;
 
 /*
  *	region_list methods
@@ -156,9 +157,20 @@ falls_in_region(struct mem_region *region, vaddr_t vaddr)
 
 static
 bool
-overlaps_region(struct mem_region *region, vaddr_t vaddr, size_t size)
+no_region_overlap(struct mem_region *region, vaddr_t vaddr, size_t size)
 {
-	return (vaddr + size < region->start_addr) || (vaddr >= region->start_addr + region->size);
+	if(debug_regions) {
+		kprintf("--- In no_region_overlap ---\n");
+		kprintf("Condition is...\n");
+		kprintf("vaddr + size <= region->start_addr || vaddr >= region->start_addr + region->size\n");
+		kprintf("%x <= %x || %x >= %x\n", vaddr + size, region->start_addr, vaddr, region->start_addr + region->size);
+		kprintf("region->start_addr = %u\n", region->start_addr);
+		kprintf("region->start_addr + region->size = %u\n", region->start_addr + region->size);
+		kprintf("vaddr + size = %u\n", vaddr + size);
+		kprintf("vaddr = %u\n", vaddr);
+	}
+
+	return vaddr + size <= region->start_addr || vaddr >= region->start_addr + region->size;
 }
 
 
@@ -195,14 +207,21 @@ region_available(struct region_list *list, vaddr_t vaddr, size_t size)
 
 	struct mem_region *current = list->head;
 	while(current != NULL) {
-		if(overlaps_region(current, vaddr, size)) {
+		if(!no_region_overlap(current, vaddr, size)) {
+
+			if(debug_regions) {
+				kprintf("overlaps_region returned true for vaddr = %u, size = %u\n", vaddr, size);
+			}
+
 			valid_region = false;
 			break;
 		}
 		current = current->next;
 	}
 
-	kprintf("region_available return value: %s\n", valid_region ? "true" : "false");
+	if(debug_regions) {
+		kprintf("region_available return value: %s\n", valid_region ? "true" : "false");
+	}
 
 	return valid_region;
 }
