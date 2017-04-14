@@ -233,3 +233,22 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	return 0;
 }
 
+static
+bool
+as_in_stack(struct addrspace *as, vaddr_t vaddr)
+{
+	return (vaddr < as->stack_start) && (vaddr > as->stack_start - as->stack_size);
+}
+
+static
+bool
+as_in_heap(struct addrspace *as, vaddr_t vaddr)
+{
+	return (vaddr >= as->heap_start) && (vaddr < as->heap_start + as->heap_size);
+}
+
+bool
+vaddr_in_segment(struct addrspace *as, vaddr_t vaddr)
+{
+	return is_valid_region(as->regions, vaddr, 0) || as_in_stack(as, vaddr) || as_in_heap(as, vaddr);
+}

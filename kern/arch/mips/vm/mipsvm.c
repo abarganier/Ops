@@ -51,6 +51,25 @@ vm_bootstrap(void)
 	/* Do nothing. */
 }
 
+
+int
+vm_fault(int faulttype, vaddr_t faultaddress)
+{
+	(void)faulttype;
+	struct addrspace *as = proc_getas();
+	if(as == NULL) {
+		panic("ERROR: Current process addrspace undefined in vm_fault!\n");
+	}
+	kprintf("Fault address: %x\n", faultaddress);
+	if(vaddr_in_segment(as, faultaddress)) {
+		
+	} else {
+		panic("SEGFAULT\n");
+	}
+
+	return 0;
+}
+
 /*
  * Debugging method to print the coremap. Be sure to call within the crit. section.
  */
@@ -232,12 +251,4 @@ vm_tlbshootdown(const struct tlbshootdown *ts)
 {
 	(void)ts;
 	panic("dumbvm tried to do tlb shootdown?!\n");
-}
-
-int
-vm_fault(int faulttype, vaddr_t faultaddress)
-{
-	(void)faulttype;
-	(void)faultaddress;
-	return 0;
 }

@@ -121,7 +121,7 @@ int               as_define_region(struct addrspace *as,
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
-
+bool              vaddr_in_segment(struct addrspace *, vaddr_t);
 
 /*
  *  Supporting structure for addrspace struct. Essentially a LinkedList to
