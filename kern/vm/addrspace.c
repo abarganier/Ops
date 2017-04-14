@@ -171,24 +171,30 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	return success ? 0 : MEMOVLP;
 }
 
-// static
-// bool
-// as_load_regions(struct addrspace *as)
-// {
-// 	(void)as;
-// 	return false;
-// }
+static
+int32_t
+as_load_regions(struct addrspace *as)
+{
+	struct region_list *list = as->regions;
+	struct mem_region *current = list->head;
+	int32_t err = 0;
+
+	while(current != NULL) {
+		err = pt_create_region(as, current);
+		if(err) {
+			return err;
+		}
+	}
+
+	return err;
+}
 
 
 int
 as_prepare_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-	return 0;
+	as_load_regions(as);
+	return EFAULT;
 }
 
 int

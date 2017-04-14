@@ -33,7 +33,6 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
-#include <pagetable.h>
 
 struct pagetable *
 pt_create(void)
@@ -74,38 +73,69 @@ pt_destroy(struct pagetable *pt)
 	return 0;
 }
 
-//Create new PTE
-int32_t 
-pt_add(struct pagetable *pt, vaddr_t vaddr)
+int32_t
+pt_create_region(struct addrspace *as, struct mem_region *region)
 {
-	if(pt == NULL){			//Consider doing error checking for vaddr
+	vaddr_t start_addr = region->start_addr;
+	size_t memsize = region->size;
+	size_t alloc = 0;
+	int32_t err = 0;
+
+	while(memsize > 0) {
+		err = pt_add(as->pt, start_addr, &alloc);
+		if(err) {
+			kprintf("ERROR: pt_add returned error %d in pt_create_region\n", err);
+			return err;
+		} 
+		start_addr += alloc;
+		memsize -= alloc;
+	}
+
+	return err;
+}
+
+int32_t 
+pt_add(struct pagetable *pt, vaddr_t vaddr, size_t *alloc)
+{
+
+	if(pt == NULL){
 		return EINVAL;
 	}
 
-	struct pt_entry *pte = pte_create();
-	if(pte == NULL){
-		return ENOMEM;
+	struct pt_entry *old_pte = pt_get_pte(pt, vaddr);
+	// If existing page doesn't exist, allocate it.
+	// If it does exist, set alloc to the number of memory avail in that page
+	if(old_pte == NULL) {
+
+		struct pt_entry *pte = pte_create();
+		if(pte == NULL){
+			return ENOMEM;
+		}
+		
+		//Check for tail of linked list
+		if(pt->tail == NULL){
+			KASSERT(pt->head == NULL);
+			pt->head = pte;
+			pt->tail = pte;
+		} else {
+			KASSERT(pt->head != NULL);
+			pt->tail->next_entry = pte;
+			pt->tail = pte;
+		}
+		pte->vpn = (vaddr_t)vaddr >> 12;
+		*alloc = PAGE_SIZE;
+
+	} else {
+		*alloc = (old_pte->vpn + PAGE_SIZE) - vaddr;
 	}
-	
-	//Check for tail of linked list
-	if(pt->tail == NULL){
-		KASSERT(pt->head == NULL);
-		pt->head = pte;
-		pt->tail = pte;
-	}
-	else{
-		KASSERT(pt->head != NULL);
-		pt->tail->next_entry = pte;
-		pt->tail = pte;
-	}
-	pte->vpn = (uint32_t)vaddr >> 12;
+
 	return 0;
 }
 
 int32_t 
 pt_remove(struct pagetable *pt, vaddr_t vaddr)
 {
-	if(pt == NULL){			//Consider doing error checking for vaddr
+	if(pt == NULL){
 		return EINVAL;
 	}
 

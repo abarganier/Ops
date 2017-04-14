@@ -36,11 +36,9 @@
 
 
 #include <vm.h>
-#include <pagetable.h>
 #include "opt-dumbvm.h"
 
 struct vnode;
-
 
 /*
  * Address space - data structure associated with the virtual memory
@@ -124,6 +122,7 @@ int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 
+
 /*
  *  Supporting structure for addrspace struct. Essentially a LinkedList to
  *  keep track of memory regions defined in as_define_region.
@@ -151,6 +150,36 @@ struct mem_region {
 
 struct mem_region *mem_region_create(void);
 void mem_region_destroy(struct mem_region *);
+
+/*
+ *  Supporting virtual memory structure for addrspace struct. Essentially a LinkedList to
+ *  keep track of virtual pages allocated.
+ */ 
+struct pagetable 
+{
+  struct pt_entry *head;
+  struct pt_entry *tail;
+
+};
+
+struct pagetable *pt_create(void);
+int32_t pt_destroy(struct pagetable *);
+int32_t pt_add(struct pagetable *, vaddr_t, size_t *);
+int32_t pt_create_region(struct addrspace *, struct mem_region *);
+int32_t pt_remove(struct pagetable *, vaddr_t);
+struct pt_entry *pt_get_pte(struct pagetable *, vaddr_t);
+
+
+struct pt_entry
+{
+  struct pt_entry *next_entry;
+  uint32_t vpn;
+
+};
+
+struct pt_entry *pte_create(void);
+int32_t pte_destroy(struct pt_entry *);
+
 /*
  * Functions in loadelf.c
  *    load_elf - load an ELF user program executable into the current

@@ -29,7 +29,7 @@
 
 #include <types.h>
 #include <lib.h>
-#include <pagetable.h>
+#include <addrspace.h>
 #include <test.h>
 
 //#define TESTSIZE 533
@@ -45,6 +45,7 @@ pagetabletest(int nargs, char **args)
 	vaddr_t v3 = 0x40000000;
 
 	int32_t result;
+	size_t val = 0;
 
 
 	//Test pt_create functionality
@@ -61,11 +62,11 @@ pagetabletest(int nargs, char **args)
 
 	//Test pt_add functionality
 	kprintf("Testing pt_add\n");
-	result = pt_add(pt, v1);
+	result = pt_add(pt, v1, &val);
 	if(result){
 		kprintf("pt_add failed when trying to add v1 for the first time \n");
 	}
-	result = pt_add(pt, v2);
+	result = pt_add(pt, v2, &val);
 	if(result){
 		kprintf("pt_add failed when trying to add v2 for the first time \n");
 	}
@@ -140,11 +141,11 @@ pagetabletest(int nargs, char **args)
 
 	//Test pt_get_pte functionality
 	kprintf("Testing pt_get_pte\n");
-	result = pt_add(pt, v1);
+	result = pt_add(pt, v1, &val);
 	if(result){
 		kprintf("PT_ADD FAIL\n");
 	}
-	result = pt_add(pt, v3);
+	result = pt_add(pt, v3, &val);
 	if(result){
 		kprintf("PT_ADD FAIL\n");
 	}
