@@ -108,6 +108,7 @@
 #define ENOTSUP         64     /* Threads operation not supported */
 #define EPTEMPTY		65	   /* Pagetable is empty */
 #define EBADVPN			66	   /* VPN does not exist in page table */
+#define MEMOVLP			67	   /* Requested defined mem region overlaps other */
 
 
 #endif /* _KERN_ERRNO_H_ */

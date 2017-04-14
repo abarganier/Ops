@@ -143,17 +143,25 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-	(void)vaddr;
-	(void)memsize;
 	(void)readable;
 	(void)writeable;
 	(void)executable;
-	return ENOSYS;
+	if(as == NULL) {
+		return EINVAL;
+	}
+
+	if(memsize <= 0) {
+		kprintf("WARNING: as_define_region called with memsize <= 0!\n");
+		return 0;
+	} 
+
+	bool success = false;
+	if(region_available(as->regions, vaddr, memsize)) {
+		// PERMISSIONS LOGIC NOT IMPLEMENTED!
+		success = add_region(as->regions, vaddr, memsize, readable, writeable, executable);
+	}
+
+	return success ? 0 : MEMOVLP;
 }
 
 int

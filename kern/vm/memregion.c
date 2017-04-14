@@ -154,8 +154,15 @@ falls_in_region(struct mem_region *region, vaddr_t vaddr)
 // 	return false;
 // }
 
+static
+bool
+overlaps_region(struct mem_region *region, vaddr_t vaddr, size_t size)
+{
+	return (vaddr + size < region->start_addr) || (vaddr >= region->start_addr + region->size);
+}
 
-bool 
+
+bool
 is_valid_region(struct region_list *list, vaddr_t vaddr, int permissions)
 {
 	(void)permissions;
@@ -175,6 +182,29 @@ is_valid_region(struct region_list *list, vaddr_t vaddr, int permissions)
 	}
 	
 	return found_valid_region;
+}
+
+bool
+region_available(struct region_list *list, vaddr_t vaddr, size_t size)
+{
+	if(list == NULL) {
+		return EINVAL;
+	}
+
+	bool valid_region = true;
+
+	struct mem_region *current = list->head;
+	while(current != NULL) {
+		if(overlaps_region(current, vaddr, size)) {
+			valid_region = false;
+			break;
+		}
+		current = current->next;
+	}
+
+	kprintf("region_available return value: %s\n", valid_region ? "true" : "false");
+
+	return valid_region;
 }
 
 /*
