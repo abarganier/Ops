@@ -89,9 +89,16 @@ pte_set_paddr(struct pt_entry *pte)
 		kprintf("ERROR: NULL pointer passed to pte_set_paddr\n");
 		return EINVAL;
 	}
-
 	
+	size_t npages = 1;
+	paddr_t ppn; 
 
+	ppn = alloc_upages(npages);
+	if(ppn <= 0) {
+		return NOPPN;
+	}
+
+	pte->ppn = ppn;
 	return 0;
 }
 
@@ -119,8 +126,10 @@ pt_add(struct pagetable *pt, vaddr_t vaddr, paddr_t *ppn_ret)
 		err = pte_set_paddr(pte);
 		if(err) {
 			pte_destroy(pte);
-			return NOPPN;
+			return err;
 		}
+
+		*ppn_ret = pte->ppn;
 
 		if(pt->tail == NULL){
 			KASSERT(pt->head == NULL);

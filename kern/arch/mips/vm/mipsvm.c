@@ -43,7 +43,7 @@ static struct spinlock coremap_lock = SPINLOCK_INITIALIZER;
 static bool debug_mode = false;
 
 uint32_t coremap_used_pages; // Also protected from coremap_lock
-uint32_t num_fixed_pages;
+uint32_t num_fixed_pages;	// number of pages used by coremap/kernel/exception handler
 
 void
 vm_bootstrap(void)
@@ -61,6 +61,7 @@ get_ppn(struct addrspace *as, vaddr_t vaddr, paddr_t *ppn) {
 	if(err) {
 		panic("pt_add in get_ppn failed! Error: %d\n", err);
 	}
+	kprintf("pt_add returned ppn of %x\n", *ppn);
 	return 0;
 }
 
@@ -81,6 +82,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		if(err) {
 			kprintf("ERROR: get_ppn failed in vm_fault!\n");
 		}
+		
+		
 	} else {
 		panic("SEGFAULT\n");
 	}
