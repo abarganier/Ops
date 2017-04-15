@@ -34,7 +34,6 @@
 #include <vm.h>
 #include <proc.h>
 
-static
 vaddr_t
 get_vpn(vaddr_t vaddr) {
 	vaddr_t vpn = vaddr >> 12;
@@ -83,7 +82,7 @@ pt_destroy(struct pagetable *pt)
 
 static
 int32_t
-pte_set_paddr(struct pt_entry *pte)
+pte_set_ppn(struct pt_entry *pte)
 {
 	if(pte == NULL) {
 		kprintf("ERROR: NULL pointer passed to pte_set_paddr\n");
@@ -123,7 +122,7 @@ pt_add(struct pagetable *pt, vaddr_t vaddr, paddr_t *ppn_ret)
 		pte->vpn = get_vpn(vaddr);
 		
 		int32_t err;
-		err = pte_set_paddr(pte);
+		err = pte_set_ppn(pte);
 		if(err) {
 			pte_destroy(pte);
 			return err;

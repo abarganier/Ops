@@ -182,6 +182,7 @@ struct pt_entry
 
 struct pt_entry *pte_create(void);
 int32_t pte_destroy(struct pt_entry *);
+vaddr_t get_vpn(vaddr_t);
 
 /*
  * Functions in loadelf.c

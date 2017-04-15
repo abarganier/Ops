@@ -59,31 +59,59 @@ get_ppn(struct addrspace *as, vaddr_t vaddr, paddr_t *ppn) {
 	
 	err = pt_add(as->pt, vaddr, ppn);
 	if(err) {
-		panic("pt_add in get_ppn failed! Error: %d\n", err);
+		return err;
 	}
-	kprintf("pt_add returned ppn of %x\n", *ppn);
 	return 0;
 }
 
+static
+void
+tlb_set_dirty(unsigned int *entry)
+{
+	*entry |= 1 << 10;
+}
+
+static
+void
+tlb_set_valid(unsigned int *entry)
+{
+	*entry |= 1 << 9;
+}
+
+static
+void
+tlb_set_bitflags(unsigned int *vpn, unsigned int *ppn) {
+	tlb_set_dirty(vpn);
+	tlb_set_valid(vpn);
+	tlb_set_dirty(ppn);
+	tlb_set_valid(ppn);
+}
 
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
 	(void)faulttype;
+
 	struct addrspace *as = proc_getas();
 	if(as == NULL) {
 		panic("ERROR: Current process addrspace undefined in vm_fault!\n");
 	}
-	kprintf("Fault address: %x\n", faultaddress);
+
 	if(vaddr_in_segment(as, faultaddress)) {
+		
 		paddr_t ppn;
 		int32_t err;
+
 		err = get_ppn(as, faultaddress, &ppn);
 		if(err) {
 			kprintf("ERROR: get_ppn failed in vm_fault!\n");
+			return err;
 		}
-		
-		
+
+		vaddr_t vpn = get_vpn(faultaddress);
+		tlb_set_bitflags(&vpn, &ppn);
+		tlb_random(vpn, ppn);
+
 	} else {
 		panic("SEGFAULT\n");
 	}
