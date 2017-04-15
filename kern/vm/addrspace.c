@@ -76,6 +76,28 @@ as_create(void)
 	return as;
 }
 
+static
+int
+as_copy_regions(struct addrspace *old, struct addrspace *new)
+{
+	if(old == NULL || new == NULL) {
+		return EINVAL;
+	}
+
+	struct mem_region *current_old = old->regions->head;
+	bool success = true;
+
+	while(current_old != NULL) {
+		success = add_region(new->regions, current_old->start_addr, current_old->size, 1, 1, 1);
+		if(!success) {
+			region_list_destroy(new->regions);
+			return 1;
+		}
+		current_old = current_old->next;
+	}
+	return 0;
+}
+
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
@@ -86,11 +108,23 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		return ENOMEM;
 	}
 
-	/*
-	 * Write this.
-	 */
+	int err = 0;
 
-	(void)old;
+	err = as_copy_regions(old, newas);
+	if(err) {
+		as_destroy(newas);
+		return 1;
+	}
+	newas->heap_start = old->heap_start;
+	newas->heap_size = old->heap_size;
+	newas->stack_start = old->stack_start;
+	newas->stack_size = old->stack_size;
+
+	err = pt_copy(old, newas);
+	if(err) {
+		as_destroy(newas);
+		return 1;
+	}
 
 	*ret = newas;
 	return 0;
@@ -229,7 +263,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 	as->stack_start = *stackptr;
-	as->stack_size = 1024 * 1024; // 1MB static stack size
+	as->stack_size = 1024 * 2048; // 1MB static stack size
 	return 0;
 }
 
@@ -237,7 +271,7 @@ static
 bool
 as_in_stack(struct addrspace *as, vaddr_t vaddr)
 {
-	return (vaddr < as->stack_start) && (vaddr > as->stack_start - as->stack_size);
+	return (vaddr < as->stack_start) && (vaddr >= as->stack_start - as->stack_size);
 }
 
 static

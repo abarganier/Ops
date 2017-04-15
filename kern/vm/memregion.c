@@ -57,6 +57,20 @@ region_list_create(void)
 	return new_list;
 }
 
+int 
+region_copy(struct mem_region *old, struct mem_region **new_ptr)
+{
+	struct mem_region *new_region = mem_region_create();
+	if(new_region == NULL) {
+		return ENOMEM;
+	}
+
+	new_region->start_addr = old->start_addr;
+	new_region->size = old->size;
+	*new_ptr = new_region;
+	return 0;
+}
+
 static
 void
 clear_region_entries(struct region_list *list)

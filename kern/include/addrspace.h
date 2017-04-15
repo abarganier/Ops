@@ -152,6 +152,7 @@ struct mem_region {
 
 struct mem_region *mem_region_create(void);
 void mem_region_destroy(struct mem_region *);
+int region_copy(struct mem_region *, struct mem_region **);
 
 /*
  *  Supporting virtual memory structure for addrspace struct. Essentially a LinkedList to
@@ -165,6 +166,7 @@ struct pagetable
 
 struct pagetable *pt_create(void);
 int32_t pt_destroy(struct pagetable *);
+int32_t pt_copy(struct addrspace *, struct addrspace *);
 int32_t pt_add(struct pagetable *, vaddr_t, paddr_t *);
 int32_t pt_create_region(struct addrspace *, struct mem_region *);
 int32_t pt_remove(struct pagetable *, vaddr_t);

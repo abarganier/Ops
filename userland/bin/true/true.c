@@ -38,6 +38,10 @@ int
 main(void)
 {
 	printf("Helloooooooo I would be surprised if this works\n");
+	int a = 10;
+	int b = 20;
+	int c = a + b;
+	printf("a = %d, b = %d, a + b = %d\n", a, b, c);
 	/* Just exit with success. */
 	exit(0);
 }

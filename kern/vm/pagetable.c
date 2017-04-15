@@ -79,6 +79,34 @@ pt_destroy(struct pagetable *pt)
 	kfree(pt);
 	return 0;
 }
+// int32_t 
+// pt_add(struct pagetable *pt, vaddr_t vaddr, paddr_t *ppn_ret)
+
+// void *memcpy(void *dest, const void *src, size_t len);
+int32_t
+pt_copy(struct addrspace *old, struct addrspace *newas)
+{
+	if(old == NULL || newas == NULL) {
+		return EINVAL;
+	}
+
+	paddr_t new_ppn = 0;
+	int32_t ret = 0;
+
+	struct pt_entry *old_curr = old->pt->head;
+	while(old_curr != NULL) {
+		ret = pt_add(newas->pt, old_curr->vpn, &new_ppn);
+		if(ret) {
+			return ret;
+		}
+
+		memcpy((void *)PADDR_TO_KVADDR(new_ppn), (void *)PADDR_TO_KVADDR(old_curr->ppn), PAGE_SIZE);
+
+		old_curr = old_curr->next_entry;
+	}
+
+	return 0;
+}
 
 static
 int32_t
@@ -202,7 +230,7 @@ struct pt_entry *
 pt_get_pte(struct pagetable *pt, vaddr_t vaddr)
 {
 	
-	if(pt == NULL || pt->head == NULL){			//Consider doing error checking for vaddr
+	if(pt == NULL || pt->head == NULL) {
 		return NULL;
 	}
 
