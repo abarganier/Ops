@@ -81,15 +81,27 @@ pt_destroy(struct pagetable *pt)
 	return 0;
 }
 
-vaddr_t 
-pt_add(struct pagetable *pt, vaddr_t vaddr)
+static
+int32_t
+pte_set_paddr(struct pt_entry *pte)
+{
+	if(pte == NULL) {
+		kprintf("ERROR: NULL pointer passed to pte_set_paddr\n");
+		return EINVAL;
+	}
+
+	
+
+	return 0;
+}
+
+int32_t 
+pt_add(struct pagetable *pt, vaddr_t vaddr, paddr_t *ppn_ret)
 {
 
 	if(pt == NULL){
 		return EINVAL;
 	}
-
-	vaddr_t vpn = 0;
 
 	struct pt_entry *old_pte = pt_get_pte(pt, vaddr);
 	// If existing page doesn't exist, allocate it.
@@ -102,9 +114,13 @@ pt_add(struct pagetable *pt, vaddr_t vaddr)
 		}
 		
 		pte->vpn = get_vpn(vaddr);
-		vpn = pte->vpn;
 		
-		// ALLOCATE AND SET PHYSICAL ADDRESS HERE
+		int32_t err;
+		err = pte_set_paddr(pte);
+		if(err) {
+			pte_destroy(pte);
+			return NOPPN;
+		}
 
 		if(pt->tail == NULL){
 			KASSERT(pt->head == NULL);
@@ -117,9 +133,10 @@ pt_add(struct pagetable *pt, vaddr_t vaddr)
 		}
 
 	} else {
-		vpn = old_pte->vpn;
+		*ppn_ret = old_pte->ppn;
 	}
-	return vpn;
+
+	return 0;
 }
 
 int32_t 

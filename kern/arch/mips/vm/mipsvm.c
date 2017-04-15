@@ -51,6 +51,19 @@ vm_bootstrap(void)
 	/* Do nothing. */
 }
 
+static
+paddr_t
+get_ppn(struct addrspace *as, vaddr_t vaddr, paddr_t *ppn) {
+	
+	int32_t err;
+	
+	err = pt_add(as->pt, vaddr, ppn);
+	if(err) {
+		panic("pt_add in get_ppn failed! Error: %d\n", err);
+	}
+	return 0;
+}
+
 
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
@@ -62,7 +75,12 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	}
 	kprintf("Fault address: %x\n", faultaddress);
 	if(vaddr_in_segment(as, faultaddress)) {
-		
+		paddr_t ppn;
+		int32_t err;
+		err = get_ppn(as, faultaddress, &ppn);
+		if(err) {
+			kprintf("ERROR: get_ppn failed in vm_fault!\n");
+		}
 	} else {
 		panic("SEGFAULT\n");
 	}
@@ -145,8 +163,9 @@ find_pages(uint32_t *index_ptr, uint64_t *coremap, unsigned npages)
 	return found_pages;
 }
 
+static
 vaddr_t
-alloc_kpages(unsigned npages)
+alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn)
 {
 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	uint32_t first_index = 0;
@@ -165,15 +184,17 @@ alloc_kpages(unsigned npages)
 		return 0;
 	}
 
-	vaddr_t virtual_address = PADDR_TO_KVADDR(first_index*PAGE_SIZE);
+	*ppn = first_index*PAGE_SIZE;
+
+	vaddr_t virtual_address = PADDR_TO_KVADDR(*ppn);
 
 	// Set first coremap entry. Set owner to 0 for now (revisit this later)
-	uint64_t first_entry = build_page_entry(npages, 0, false, false, true, false, virtual_address);
+	uint64_t first_entry = build_page_entry(npages, 0, false, false, true, is_fixed, virtual_address);
 	coremap[first_index] = first_entry;
 	coremap_used_pages++;
 
 	// Set additional coremap entries (if more than one)
-	uint64_t mid_entry = build_page_entry(npages, 0, false, false, false, false, virtual_address);
+	uint64_t mid_entry = build_page_entry(npages, 0, false, false, false, is_fixed, virtual_address);
 	for(uint64_t entry = 1; entry < npages; entry++) {
 		coremap[first_index + entry] = mid_entry;
 		coremap_used_pages++;
@@ -186,6 +207,24 @@ alloc_kpages(unsigned npages)
 	spinlock_release(&coremap_lock);
 
 	return virtual_address;
+}
+
+vaddr_t
+alloc_kpages(unsigned npages)
+{
+	paddr_t dummy = 0;
+	vaddr_t ret = alloc_pages(npages, true, &dummy);
+	(void)dummy;
+	return ret;
+}
+
+paddr_t
+alloc_upages(unsigned npages)
+{
+	paddr_t ppn = 0;
+	vaddr_t ret = alloc_pages(npages, true, &ppn);
+	(void)ret;
+	return ppn;
 }
 
 void
@@ -203,10 +242,6 @@ free_kpages(vaddr_t addr)
 	for(uint32_t entry = num_fixed_pages; entry < coremap_size; entry++) {
 
 		if(get_vaddr(coremap[entry]) == addr) {
-
-			if(get_is_fixed(coremap[entry])) {
-				panic("Unable to free fixed coremap entries!\n");
-			}
 
 			// should be first chunk of set
 			KASSERT(get_is_first_chunk(coremap[entry]));

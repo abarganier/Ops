@@ -39,6 +39,8 @@ pagetabletest(int nargs, char **args)
 {
 	(void)nargs;
 	(void)args;
+
+	paddr_t ppn = 0;
 	
 	vaddr_t v1 = 0x60000000;
 	vaddr_t v2 = 0x50000000;
@@ -60,11 +62,11 @@ pagetabletest(int nargs, char **args)
 
 	//Test pt_add functionality
 	kprintf("Testing pt_add\n");
-	result = pt_add(pt, v1);
+	result = pt_add(pt, v1, &ppn);
 	if(result){
 		kprintf("pt_add failed when trying to add v1 for the first time \n");
 	}
-	result = pt_add(pt, v2);
+	result = pt_add(pt, v2, &ppn);
 	if(result){
 		kprintf("pt_add failed when trying to add v2 for the first time \n");
 	}
@@ -139,11 +141,11 @@ pagetabletest(int nargs, char **args)
 
 	//Test pt_get_pte functionality
 	kprintf("Testing pt_get_pte\n");
-	result = pt_add(pt, v1);
+	result = pt_add(pt, v1, &ppn);
 	if(result){
 		kprintf("PT_ADD FAIL\n");
 	}
-	result = pt_add(pt, v3);
+	result = pt_add(pt, v3, &ppn);
 	if(result){
 		kprintf("PT_ADD FAIL\n");
 	}

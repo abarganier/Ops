@@ -165,7 +165,7 @@ struct pagetable
 
 struct pagetable *pt_create(void);
 int32_t pt_destroy(struct pagetable *);
-vaddr_t pt_add(struct pagetable *, vaddr_t);
+int32_t pt_add(struct pagetable *, vaddr_t, paddr_t *);
 int32_t pt_create_region(struct addrspace *, struct mem_region *);
 int32_t pt_remove(struct pagetable *, vaddr_t);
 struct pt_entry *pt_get_pte(struct pagetable *, vaddr_t);
@@ -177,6 +177,7 @@ struct pt_entry
 {
   struct pt_entry *next_entry;
   vaddr_t vpn;
+  paddr_t ppn;
 };
 
 struct pt_entry *pte_create(void);
