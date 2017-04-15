@@ -263,7 +263,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 	as->stack_start = *stackptr;
-	as->stack_size = 1024 * 2048; // 1MB static stack size
+	as->stack_size = 2048 * 2048; // MAY NEED TO CHANGE
 	return 0;
 }
 
