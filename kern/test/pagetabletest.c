@@ -40,137 +40,144 @@ pagetabletest(int nargs, char **args)
 	(void)nargs;
 	(void)args;
 
-	paddr_t ppn = 0;
+	// paddr_t ppn = 0;
 	
-	vaddr_t v1 = 0x60000000;
-	vaddr_t v2 = 0x50000000;
-	vaddr_t v3 = 0x40000000;
+	// vaddr_t v1 = 0x60000000;
+	// vaddr_t v2 = 0x50000000;
+	// vaddr_t v3 = 0x40000000;
 
-	int32_t result;
+	// int32_t result;
 
-	//Test pt_create functionality
-	kprintf("Testing pt_create\n");
-	struct pagetable *pt;
-	pt = pt_create();
+	// //Test pt_create functionality
+	// kprintf("Testing pt_create\n");
+	// struct pagetable *pt;
+	// pt = pt_create();
 
-	if(pt == NULL){
-		kprintf("PT_CREATE FAIL\n");
-	}
-	else{
-		kprintf("PT_CREATE SUCCESS\n");
-	}
+	// if(pt == NULL){
+	// 	kprintf("PT_CREATE FAIL\n");
+	// }
+	// else{
+	// 	kprintf("PT_CREATE SUCCESS\n");
+	// }
 
-	//Test pt_add functionality
-	kprintf("Testing pt_add\n");
-	result = pt_add(pt, v1, &ppn);
-	if(result){
-		kprintf("pt_add failed when trying to add v1 for the first time \n");
-	}
-	result = pt_add(pt, v2, &ppn);
-	if(result){
-		kprintf("pt_add failed when trying to add v2 for the first time \n");
-	}
+	// struct addrspace *as = as_create();
+	// if(as == NULL) {
+	// 	panic("addrspace failed to create\n");
+	// }
 
-	struct pt_entry *thisPTE = pt->head;
-	while(thisPTE != NULL){
-		kprintf("Here's a PTE!\n");
-		thisPTE = thisPTE->next_entry;
-	}
+	// struct pagetable *pt = as->pt;
 
-	//Test pt_remove functionality
-	kprintf("Testing pt_remove\n");
-	result = pt_remove(pt, v1);
-	if(result){
-		kprintf("pt_remove failed to remove v1");
-	}
+	// //Test pt_add functionality
+	// kprintf("Testing pt_add\n");
+	// result = pt_add(pt, v1, &ppn);
+	// if(result){
+	// 	kprintf("pt_add failed when trying to add v1 for the first time \n");
+	// }
+	// result = pt_add(pt, v2, &ppn);
+	// if(result){
+	// 	kprintf("pt_add failed when trying to add v2 for the first time \n");
+	// }
 
-	thisPTE = pt->head;
-	while(thisPTE != NULL){
-		kprintf("Here's a PTE!\n");
-		thisPTE = thisPTE->next_entry;
-	}
+	// struct pt_entry *thisPTE = pt->head;
+	// while(thisPTE != NULL){
+	// 	kprintf("Here's a PTE!\n");
+	// 	thisPTE = thisPTE->next_entry;
+	// }
 
-	result = pt_remove(pt, v1);
-	if(result){
-		kprintf("pt_remove failed to remove v1 a second time. Good!\n");
-	}
-	else{
-		kprintf("pt_remove removed v1 twice???\n");
-	}
-	thisPTE = pt->head;
-	while(thisPTE != NULL){
-		kprintf("Here's a PTE!\n");
-		thisPTE = thisPTE->next_entry;
-	}
+	// //Test pt_remove functionality
+	// kprintf("Testing pt_remove\n");
+	// result = pt_remove(pt, v1);
+	// if(result){
+	// 	kprintf("pt_remove failed to remove v1");
+	// }
 
-	result = pt_remove(pt, v3);
-	if(result){
-		kprintf("pt_remove failed to remove v3 because it was never in the pagetable. Good!\n");
-	}
+	// thisPTE = pt->head;
+	// while(thisPTE != NULL){
+	// 	kprintf("Here's a PTE!\n");
+	// 	thisPTE = thisPTE->next_entry;
+	// }
 
-	result = pt_remove(pt, v2);
-	if(result){
-		kprintf("pt_remove failed to remove v2. Not good\n");
-	}
+	// result = pt_remove(pt, v1);
+	// if(result){
+	// 	kprintf("pt_remove failed to remove v1 a second time. Good!\n");
+	// }
+	// else{
+	// 	kprintf("pt_remove removed v1 twice???\n");
+	// }
+	// thisPTE = pt->head;
+	// while(thisPTE != NULL){
+	// 	kprintf("Here's a PTE!\n");
+	// 	thisPTE = thisPTE->next_entry;
+	// }
 
-	kprintf("Scan pagetable for PTEs. Should find none.\n");
-	thisPTE = pt->head;
-	while(thisPTE != NULL){
-		kprintf("Here's a PTE!\n");
-		thisPTE = thisPTE->next_entry;
-	}
-	kprintf("End search for PTEs.\n");
+	// result = pt_remove(pt, v3);
+	// if(result){
+	// 	kprintf("pt_remove failed to remove v3 because it was never in the pagetable. Good!\n");
+	// }
+
+	// result = pt_remove(pt, v2);
+	// if(result){
+	// 	kprintf("pt_remove failed to remove v2. Not good\n");
+	// }
+
+	// kprintf("Scan pagetable for PTEs. Should find none.\n");
+	// thisPTE = pt->head;
+	// while(thisPTE != NULL){
+	// 	kprintf("Here's a PTE!\n");
+	// 	thisPTE = thisPTE->next_entry;
+	// }
+	// kprintf("End search for PTEs.\n");
 
 
-	//Test pte_create functionality
-	kprintf("Testing pte_create\n");
-	struct pt_entry *pte;
-	pte = pte_create();
-	if(pte->vpn == 0){
-		kprintf("pte->vpn successfully initializes to 0\n");
-	}
-	else{
-		kprintf("pte->vpn does not initialize to 0. Bad.\n");
-	}
-	if(pte->next_entry == NULL){
-		kprintf("pte->next_entry successfully initializes to NULL\n");
-	}
-	else{
-		kprintf("pte->next_entry does not initialize to NULL. Bad.\n");
-	}
+	// //Test pte_create functionality
+	// kprintf("Testing pte_create\n");
+	// struct pt_entry *pte;
+	// pte = pte_create();
+	// if(pte->vpn == 0){
+	// 	kprintf("pte->vpn successfully initializes to 0\n");
+	// }
+	// else{
+	// 	kprintf("pte->vpn does not initialize to 0. Bad.\n");
+	// }
+	// if(pte->next_entry == NULL){
+	// 	kprintf("pte->next_entry successfully initializes to NULL\n");
+	// }
+	// else{
+	// 	kprintf("pte->next_entry does not initialize to NULL. Bad.\n");
+	// }
 
-	//Test pt_get_pte functionality
-	kprintf("Testing pt_get_pte\n");
-	result = pt_add(pt, v1, &ppn);
-	if(result){
-		kprintf("PT_ADD FAIL\n");
-	}
-	result = pt_add(pt, v3, &ppn);
-	if(result){
-		kprintf("PT_ADD FAIL\n");
-	}
-	struct pt_entry *test_pte1 = NULL;
-	test_pte1 = pt_get_pte(pt, v1);
-	if(test_pte1 != NULL){
-		if(test_pte1->vpn == v1 >>12){
-			kprintf("PT_GET_PTE SUCCESS\n");
-		}
-		else{
-			kprintf("PT_GET_PTE FAIL on vpn mismatch\n");
-		}
-	}
-	else{
-		kprintf("PT_GET_PTE FAIL on find\n");
-	}
+	// //Test pt_get_pte functionality
+	// kprintf("Testing pt_get_pte\n");
+	// result = pt_add(pt, v1, &ppn);
+	// if(result){
+	// 	kprintf("PT_ADD FAIL\n");
+	// }
+	// result = pt_add(pt, v3, &ppn);
+	// if(result){
+	// 	kprintf("PT_ADD FAIL\n");
+	// }
+	// struct pt_entry *test_pte1 = NULL;
+	// test_pte1 = pt_get_pte(pt, v1);
+	// if(test_pte1 != NULL){
+	// 	if(test_pte1->vpn == v1 >>12){
+	// 		kprintf("PT_GET_PTE SUCCESS\n");
+	// 	}
+	// 	else{
+	// 		kprintf("PT_GET_PTE FAIL on vpn mismatch\n");
+	// 	}
+	// }
+	// else{
+	// 	kprintf("PT_GET_PTE FAIL on find\n");
+	// }
 
-	struct pt_entry *test_pte2 = NULL;
-	test_pte2 = pt_get_pte(pt, v2);
-	if(test_pte2 != NULL){
-		kprintf("PT_GET_PTE FAIL. Returned pointer to non-existant PTE\n");
-	}
+	// struct pt_entry *test_pte2 = NULL;
+	// test_pte2 = pt_get_pte(pt, v2);
+	// if(test_pte2 != NULL){
+	// 	kprintf("PT_GET_PTE FAIL. Returned pointer to non-existant PTE\n");
+	// }
 
 	
-	pte_destroy(pte);
+	// pte_destroy(pte);
 
 
 

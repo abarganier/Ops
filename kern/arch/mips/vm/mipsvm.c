@@ -57,7 +57,7 @@ get_ppn(struct addrspace *as, vaddr_t vaddr, paddr_t *ppn) {
 	
 	int32_t err;
 	
-	err = pt_add(as->pt, vaddr, ppn);
+	err = pt_add(as, vaddr, ppn);
 	if(err) {
 		return err;
 	}
@@ -158,6 +158,16 @@ print_coremap(void)
 }
 
 static
+void
+print_coremap_entry(uint64_t entry)
+{
+	kprintf("Printing coremap entry:\n");
+	kprintf("VPN: %x\n", (vaddr_t)get_vaddr(entry));
+	kprintf("Owner: %u\n", (pid_t)get_owner(entry));
+	kprintf("Free?: %s\n", get_page_is_free(entry) ? "true" : "false");
+}
+
+static
 bool
 find_pages(uint32_t *index_ptr, uint64_t *coremap, unsigned npages)
 {
@@ -205,7 +215,7 @@ find_pages(uint32_t *index_ptr, uint64_t *coremap, unsigned npages)
 
 static
 vaddr_t
-alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn, vaddr_t vpn, bool is_kpage)
+alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn, vaddr_t vpn, pid_t own_pid)
 {
 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	uint32_t first_index = 0;
@@ -234,7 +244,7 @@ alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn, vaddr_t vpn, bool is_k
 	}
 
 	// Set first coremap entry. Set owner to 0 for now (revisit this later)
-	pid_t owner_id = is_kpage ? 0 : curproc->pid;
+	pid_t owner_id = own_pid;
 
 	uint64_t first_entry = build_page_entry(npages, owner_id, false, false, true, is_fixed, virtual_address);
 	coremap[first_index] = first_entry;
@@ -260,16 +270,16 @@ vaddr_t
 alloc_kpages(unsigned npages)
 {
 	paddr_t dummy = 0;
-	vaddr_t ret = alloc_pages(npages, true, &dummy, 0, true);
+	vaddr_t ret = alloc_pages(npages, true, &dummy, 0, 0);
 	(void)dummy;
 	return ret;
 }
 
 paddr_t
-alloc_upages(unsigned npages, vaddr_t vpn)
+alloc_upages(unsigned npages, vaddr_t vpn, pid_t own_pid)
 {
 	paddr_t ppn = 0;
-	vaddr_t ret = alloc_pages(npages, true, &ppn, vpn, false);
+	vaddr_t ret = alloc_pages(npages, true, &ppn, vpn, own_pid);
 	(void)ret;
 	return ppn;
 }
@@ -288,8 +298,7 @@ free_pages(vaddr_t addr, pid_t owner)
 	}
 
 	for(uint32_t entry = num_fixed_pages; entry < coremap_size; entry++) {
-		// kprintf("free_kpages - vpn: %x\n", (unsigned int)(get_vaddr(coremap[entry])));
-		// kprintf("free_kpages - owner: %x\n", (pid_t)get_owner(coremap[entry]));
+		
 		if(get_vaddr(coremap[entry]) == addr && ((pid_t)get_owner(coremap[entry])) == owner) {
 
 			// should be first chunk of set
@@ -320,6 +329,29 @@ free_pages(vaddr_t addr, pid_t owner)
 		panic("free_pages was unable to find the address passed!\n");
 	}
 }
+
+void
+free_page_at_index(size_t index, pid_t owner, vaddr_t vpn)
+{
+	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
+
+	spinlock_acquire(&coremap_lock);
+
+	uint64_t entry = coremap[index];
+
+	if(debug_mode) {
+		print_coremap_entry(entry);
+	}
+
+	KASSERT((vaddr_t)get_vaddr(entry) == vpn);
+	KASSERT((pid_t)get_owner(entry) == owner);
+
+	coremap[index] = 0;
+
+	spinlock_release(&coremap_lock);
+
+}
+
 
 void
 free_kpages(vaddr_t addr)

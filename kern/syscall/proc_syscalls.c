@@ -85,8 +85,7 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	}
 
 	newproc->ppid = curproc->pid;
-
-
+	
 	//Set p_cwd of new proc to that of parent proc
 	newproc->p_cwd = curproc->p_cwd;
 
@@ -97,12 +96,14 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 		return err;
 	}
 
-	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace);
+	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace, newproc->pid);
 	if(err){
 //		proc_destroy(newproc); 
 		*retval = err;
 		return err;
 	}
+
+	newproc->p_addrspace->as_pid = newproc->pid;
 	*retval = newproc->pid;
 
 
@@ -189,7 +190,7 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 	}
 
 	lock_acquire(p_table->pt_lock);
-	proc_destroy(childproc); // leak memory for now, fix in asst3
+	// proc_destroy(childproc); // leak memory for now, fix in asst3
 	p_table->table[pid] = NULL;
 	lock_release(p_table->pt_lock);
 

@@ -53,10 +53,12 @@ int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages);
-paddr_t alloc_upages(unsigned npages, vaddr_t vpn);
+paddr_t alloc_upages(unsigned npages, vaddr_t vpn, pid_t own_pid);
 
 void free_kpages(vaddr_t addr);
 void free_upages(vaddr_t addr, pid_t owner);
+void free_page_at_index(size_t, pid_t, vaddr_t);
+
 
 /*
  * Return amount of memory (in bytes) used by allocated coremap pages.  If

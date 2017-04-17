@@ -69,8 +69,9 @@ pt_cleanup_entries(struct addrspace *as)
 
 	while(current != NULL){
 		struct pt_entry *to_destroy = current;
-//		free_kpages(to_destroy->ppn);
-		free_upages(to_destroy->vpn, as->as_pid);
+		// kprintf("pt_cleanup_entries - Freeing coremap page with vpn: %x, owner: %u\n", to_destroy->vpn, as->as_pid);
+		size_t cm_index = to_destroy->ppn / PAGE_SIZE;
+		free_page_at_index(cm_index, as->as_pid, to_destroy->vpn);
 		current = current->next_entry;
 		pte_destroy(to_destroy);
 	}
@@ -83,10 +84,7 @@ pt_destroy(struct addrspace *as)
 	kfree(as->pt);
 	return 0;
 }
-// int32_t 
-// pt_add(struct pagetable *pt, vaddr_t vaddr, paddr_t *ppn_ret)
 
-// void *memcpy(void *dest, const void *src, size_t len);
 int32_t
 pt_copy(struct addrspace *old, struct addrspace *newas)
 {
@@ -99,7 +97,7 @@ pt_copy(struct addrspace *old, struct addrspace *newas)
 
 	struct pt_entry *old_curr = old->pt->head;
 	while(old_curr != NULL) {
-		ret = pt_add(newas->pt, old_curr->vpn, &new_ppn);
+		ret = pt_add(newas, old_curr->vpn, &new_ppn);
 		if(ret) {
 			return ret;
 		}
@@ -114,7 +112,7 @@ pt_copy(struct addrspace *old, struct addrspace *newas)
 
 static
 int32_t
-pte_set_ppn(struct pt_entry *pte)
+pte_set_ppn(struct pt_entry *pte, struct addrspace *as)
 {
 	if(pte == NULL) {
 		kprintf("ERROR: NULL pointer passed to pte_set_paddr\n");
@@ -125,7 +123,7 @@ pte_set_ppn(struct pt_entry *pte)
 	paddr_t ppn; 
 
 
-	ppn = alloc_upages(npages, pte->vpn);
+	ppn = alloc_upages(npages, pte->vpn, as->as_pid);
 	if(ppn <= 0) {
 		return NOPPN;
 	}
@@ -135,13 +133,14 @@ pte_set_ppn(struct pt_entry *pte)
 }
 
 int32_t 
-pt_add(struct pagetable *pt, vaddr_t vaddr, paddr_t *ppn_ret)
+pt_add(struct addrspace *as, vaddr_t vaddr, paddr_t *ppn_ret)
 {
 
-	if(pt == NULL){
+	if(as == NULL || as->pt == NULL){
 		return EINVAL;
 	}
 
+	struct pagetable *pt = as->pt;
 	struct pt_entry *old_pte = pt_get_pte(pt, vaddr);
 	// If existing page doesn't exist, allocate it.
 	// If it does exist, return vpn of existing page
@@ -155,7 +154,7 @@ pt_add(struct pagetable *pt, vaddr_t vaddr, paddr_t *ppn_ret)
 		pte->vpn = get_vpn(vaddr);
 		
 		int32_t err;
-		err = pte_set_ppn(pte);
+		err = pte_set_ppn(pte, as);
 		if(err) {
 			pte_destroy(pte);
 			return err;

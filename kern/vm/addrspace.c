@@ -103,7 +103,7 @@ as_copy_regions(struct addrspace *old, struct addrspace *new)
 }
 
 int
-as_copy(struct addrspace *old, struct addrspace **ret)
+as_copy(struct addrspace *old, struct addrspace **ret, pid_t new_pid)
 {
 	struct addrspace *newas;
 
@@ -112,6 +112,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		return ENOMEM;
 	}
 
+	newas->as_pid = new_pid;
+	
 	int err = 0;
 
 	err = as_copy_regions(old, newas);

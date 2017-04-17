@@ -110,7 +110,7 @@ struct addrspace {
  */
 
 struct addrspace *as_create(void);
-int               as_copy(struct addrspace *src, struct addrspace **ret);
+int               as_copy(struct addrspace *src, struct addrspace **ret, pid_t new_pid);
 void              as_activate(void);
 void              as_deactivate(void);
 void              as_destroy(struct addrspace *);
@@ -169,7 +169,7 @@ struct pagetable
 struct pagetable *pt_create(void);
 int32_t pt_destroy(struct addrspace *);
 int32_t pt_copy(struct addrspace *, struct addrspace *);
-int32_t pt_add(struct pagetable *, vaddr_t, paddr_t *);
+int32_t pt_add(struct addrspace *, vaddr_t, paddr_t *);
 int32_t pt_create_region(struct addrspace *, struct mem_region *);
 int32_t pt_remove(struct pagetable *, vaddr_t);
 struct pt_entry *pt_get_pte(struct pagetable *, vaddr_t);
