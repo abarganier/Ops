@@ -271,3 +271,24 @@ mem_region_destroy(struct mem_region *region)
 	}
 	kfree(region);
 }
+
+void
+print_mem_regions(struct region_list *list)
+{
+	if(list == NULL || list->head == NULL) {
+		return;
+	}
+
+	struct mem_region *current = list->head;
+	int index = 0;
+
+	while(current != NULL) {
+		kprintf("=== Memory Region #%d ===\n", index);
+		kprintf("start_addr: %x\n", current->start_addr);
+		kprintf("size: %u\n", current->size);
+		kprintf("end address: %x\n", current->start_addr + current->size);
+		kprintf("========================\n");
+		current = current->next;
+	}
+	
+}

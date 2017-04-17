@@ -134,8 +134,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 void
 as_destroy(struct addrspace *as)
 {
-	pt_destroy(as->pt);
 	region_list_destroy(as->regions);
+	pt_destroy(as->pt);
 	kfree(as);
 }
 
@@ -193,7 +193,7 @@ int32_t
 as_define_heap(struct addrspace *as)
 {
 	int32_t err = 0;
-	if(as->pt->head != NULL) {
+	if(as->regions->head != NULL) {
 		vaddr_t heap_start = 0;
 		heap_start = get_heap_start(as);
 		as->heap_start = heap_start;
@@ -234,6 +234,8 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		success = add_region(as->regions, vaddr, memsize, readable, writeable, executable);
 		if(success) {
 			as_define_heap(as);
+		} else {
+			return 1;
 		}
 	}
 
@@ -264,7 +266,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 	as->stack_start = *stackptr;
-	as->stack_size = 2048 * 2048; // MAY NEED TO CHANGE
+	as->stack_size = 2048 * 2024; // 4MB
 	return 0;
 }
 
@@ -285,5 +287,21 @@ as_in_heap(struct addrspace *as, vaddr_t vaddr)
 bool
 vaddr_in_segment(struct addrspace *as, vaddr_t vaddr)
 {
-	return is_valid_region(as->regions, vaddr, 0) || as_in_stack(as, vaddr) || as_in_heap(as, vaddr);
+	bool res = is_valid_region(as->regions, vaddr, 0) || as_in_stack(as, vaddr) || as_in_heap(as, vaddr);
+	if(!res) {
+		kprintf("!=============================================!\n");
+		kprintf("ERROR: is_valid_region returning false! vaddr: %x\n", vaddr);
+		kprintf("Process PID: %d\n", curproc->pid);
+		kprintf("as->stack_start: %x\n", as->stack_start);
+		kprintf("as->stack_size: %x\n", as->stack_size);
+		kprintf("Stack starting vaddr: %x\n", as->stack_start - as->stack_size);
+		kprintf("as->heap_start: %x\n", as->heap_start);
+		kprintf("as->heap_size: %x\n", as->heap_size);
+		print_mem_regions(as->regions);
+		kprintf("is_valid_region: %s\n", is_valid_region(as->regions, vaddr, 0) ? "true" : "false");
+		kprintf("as_in_heap: %s\n", as_in_heap(as, vaddr) ? "true" : "false");
+		kprintf("as_in_stack: %s\n", as_in_stack(as, vaddr) ? "true" : "false");
+		kprintf("!=============================================!\n");
+	}
+	return res;
 }

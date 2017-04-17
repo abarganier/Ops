@@ -138,7 +138,7 @@ void region_list_destroy(struct region_list *);
 bool add_region(struct region_list *, vaddr_t, size_t, int, int, int);
 bool is_valid_region(struct region_list *, vaddr_t, int);
 bool region_available(struct region_list *, vaddr_t, size_t);
-
+void print_mem_regions(struct region_list *);
 /*
  *  Node struct for the region_list 
  */

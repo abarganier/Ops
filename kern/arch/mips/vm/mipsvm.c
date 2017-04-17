@@ -97,8 +97,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	struct addrspace *as = proc_getas();
 
 	if(as == NULL) {
-		panic("ERROR: Current process addrspace undefined in vm_fault!\n");
+		return ENOMEM;
 	}
+
+	int spl;
 
 	if(vaddr_in_segment(as, faultaddress)) {
 		
@@ -113,10 +115,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 		vaddr_t vpn = get_vpn(faultaddress);
 		tlb_set_bitflags(&vpn, &ppn);
-		tlb_random(vpn, ppn);
 
+		spl = splhigh();
+		tlb_random(vpn, ppn);
+		splx(spl);
+		
 	} else {
-		// kprintf("ERROR: SEGFAULT in vm_fault!\n");
+		kprintf("ERROR: SEGFAULT in vm_fault! faultaddress: %x\n", faultaddress);
 		return EFAULT;
 	}
 
