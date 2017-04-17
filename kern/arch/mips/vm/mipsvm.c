@@ -119,7 +119,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		spl = splhigh();
 		tlb_random(vpn, ppn);
 		splx(spl);
-		
+
 	} else {
 		kprintf("ERROR: SEGFAULT in vm_fault! faultaddress: %x\n", faultaddress);
 		return EFAULT;
@@ -205,7 +205,7 @@ find_pages(uint32_t *index_ptr, uint64_t *coremap, unsigned npages)
 
 static
 vaddr_t
-alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn)
+alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn, vaddr_t vpn, bool is_kpage)
 {
 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	uint32_t first_index = 0;
@@ -226,15 +226,22 @@ alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn)
 
 	*ppn = first_index*PAGE_SIZE;
 
-	vaddr_t virtual_address = PADDR_TO_KVADDR(*ppn);
+	vaddr_t virtual_address;
+	if(vpn > 0) {
+		virtual_address = vpn;
+	} else {
+		virtual_address = PADDR_TO_KVADDR(*ppn);
+	}
 
 	// Set first coremap entry. Set owner to 0 for now (revisit this later)
-	uint64_t first_entry = build_page_entry(npages, 0, false, false, true, is_fixed, virtual_address);
+	pid_t owner_id = is_kpage ? 0 : curproc->pid;
+
+	uint64_t first_entry = build_page_entry(npages, owner_id, false, false, true, is_fixed, virtual_address);
 	coremap[first_index] = first_entry;
 	coremap_used_pages++;
 
 	// Set additional coremap entries (if more than one)
-	uint64_t mid_entry = build_page_entry(npages, 0, false, false, false, is_fixed, virtual_address);
+	uint64_t mid_entry = build_page_entry(npages, owner_id, false, false, false, is_fixed, virtual_address);
 	for(uint64_t entry = 1; entry < npages; entry++) {
 		coremap[first_index + entry] = mid_entry;
 		coremap_used_pages++;
@@ -253,22 +260,23 @@ vaddr_t
 alloc_kpages(unsigned npages)
 {
 	paddr_t dummy = 0;
-	vaddr_t ret = alloc_pages(npages, true, &dummy);
+	vaddr_t ret = alloc_pages(npages, true, &dummy, 0, true);
 	(void)dummy;
 	return ret;
 }
 
 paddr_t
-alloc_upages(unsigned npages)
+alloc_upages(unsigned npages, vaddr_t vpn)
 {
 	paddr_t ppn = 0;
-	vaddr_t ret = alloc_pages(npages, true, &ppn);
+	vaddr_t ret = alloc_pages(npages, true, &ppn, vpn, false);
 	(void)ret;
 	return ppn;
 }
 
+static
 void
-free_kpages(vaddr_t addr)
+free_pages(vaddr_t addr, pid_t owner)
 {
 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	bool not_found = false;
@@ -280,8 +288,9 @@ free_kpages(vaddr_t addr)
 	}
 
 	for(uint32_t entry = num_fixed_pages; entry < coremap_size; entry++) {
-
-		if(get_vaddr(coremap[entry]) == addr) {
+		// kprintf("free_kpages - vpn: %x\n", (unsigned int)(get_vaddr(coremap[entry])));
+		// kprintf("free_kpages - owner: %x\n", (pid_t)get_owner(coremap[entry]));
+		if(get_vaddr(coremap[entry]) == addr && ((pid_t)get_owner(coremap[entry])) == owner) {
 
 			// should be first chunk of set
 			KASSERT(get_is_first_chunk(coremap[entry]));
@@ -310,6 +319,18 @@ free_kpages(vaddr_t addr)
 	if(not_found) {
 		panic("free_kpages was unable to find the address passed!\n");
 	}
+}
+
+void
+free_kpages(vaddr_t addr)
+{
+	free_pages(addr, 0);
+}
+
+void
+free_upages(vaddr_t addr, pid_t owner)
+{
+	free_pages(addr, owner);
 }
 
 unsigned

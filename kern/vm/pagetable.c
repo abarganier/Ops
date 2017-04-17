@@ -67,6 +67,7 @@ pt_cleanup_entries(struct pagetable *pt)
 
 	while(current != NULL){
 		struct pt_entry *to_destroy = current;
+		free_kpages(to_destroy->ppn);
 		current = current->next_entry;
 		pte_destroy(to_destroy);
 	}
@@ -120,7 +121,8 @@ pte_set_ppn(struct pt_entry *pte)
 	size_t npages = 1;
 	paddr_t ppn; 
 
-	ppn = alloc_upages(npages);
+
+	ppn = alloc_upages(npages, pte->vpn);
 	if(ppn <= 0) {
 		return NOPPN;
 	}

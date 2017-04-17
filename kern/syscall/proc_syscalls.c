@@ -189,7 +189,7 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 	}
 
 	lock_acquire(p_table->pt_lock);
-	// proc_destroy(childproc); // leak memory for now, fix in asst3
+	proc_destroy(childproc); // leak memory for now, fix in asst3
 	p_table->table[pid] = NULL;
 	lock_release(p_table->pt_lock);
 
@@ -210,8 +210,9 @@ sys_exit(int exitcode)
 
 	if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
 		lock_acquire(p_table->pt_lock);
+		// thread_exit();
+		// proc_destroy(p_table->table[pid]);
 		p_table->table[pid] = NULL;
-		// proc_destroy(p_table->table[pid]); // leak memory for now, fix in asst3 
 		lock_release(p_table->pt_lock);
 		return;
 	}
