@@ -190,6 +190,9 @@ get_heap_start(struct addrspace *as)
 		}
 		current = current->next;
 	}
+	// The heap start must be page aligned. Add PAGE_SIZE and then 
+	// get the VADDR from that value.
+	max = get_vpn(max + PAGE_SIZE);
 	return max;
 }
 
