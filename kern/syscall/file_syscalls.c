@@ -67,12 +67,13 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 
 	int result = copyin((const_userptr_t) buf, (void *)kbuf, buflen);
 	if(result){
-		kfree(kbuf);		
+		kfree(kbuf);	
 		*retval = result;
 		return result;
 	}
 
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
+		kfree(kbuf);
 		*retval = EBADF;
 		return EBADF;
 	}
@@ -83,11 +84,13 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 		fh_flags == O_RDONLY+O_EXCL || 
 		fh_flags == O_RDONLY+O_TRUNC || 
 		fh_flags == O_RDONLY+O_APPEND){
+		kfree(kbuf);
 		*retval = EBADF;
 		return EBADF;
 	}
 	
 	if(fh_flags==3 || fh_flags >= O_NOCTTY){
+		kfree(kbuf);
 		*retval = EINVAL;
 		return EINVAL;
 	}
@@ -110,6 +113,7 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 
 	result = VOP_WRITE(fh->fh_vnode, &u);
 	if(result) {
+		kfree(kbuf);
 		*retval = result;
 		lock_release(fh->fh_lock);
 		return result;
@@ -117,6 +121,8 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 	fh->fh_offset_value = u.uio_offset;
 
 	*retval = buflen - u.uio_resid;
+	kfree(kbuf);
+
 	lock_release(fh->fh_lock);
 
 	return 0;
@@ -149,6 +155,7 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 	}
 
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
+		kfree(kbuf);
 		*retval = -1;
 		return EBADF;
 	}
@@ -159,11 +166,13 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 		fh_flags == O_WRONLY+O_EXCL || 
 		fh_flags == O_WRONLY+O_TRUNC || 
 		fh_flags == O_WRONLY+O_APPEND){
+		kfree(kbuf);
 		*retval = -1;
 		return EBADF;
 	}
 
 	if(fh_flags==3 || fh_flags >= O_NOCTTY){
+		kfree(kbuf);
 		*retval = -1;
 		return EINVAL;
 	}
@@ -186,12 +195,14 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 
 	result = VOP_READ(fh->fh_vnode, &u);
 	if(result) {
+		kfree(kbuf);
 		lock_release(fh->fh_lock);
 		*retval = result;
 		return result;
 	}
 
 	fh->fh_offset_value = u.uio_offset;
+	kfree(kbuf);
 	lock_release(fh->fh_lock);
 
 	*retval = buflen - u.uio_resid;
@@ -199,7 +210,7 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 }
 
 int
-sys_open(const char *filename, int flags, int32_t * retval)
+sys_open(const char *filename, int flags, int32_t *retval)
 {
 	if(flags==3 || flags >= O_NOCTTY){
 		*retval = EINVAL;
@@ -214,11 +225,13 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	/* Handles EFAULT. Add 1 to strlen for null terminator */
 	result = copyinstr((const_userptr_t)filename, (void*)k_filename, (size_t)100, &size);
 	if (result) {
+		kfree(k_filename);
 		*retval = result;
 		return result;
 	}
 
 	if(size<2){
+		kfree(k_filename);
 		*retval = EINVAL;
 		return EINVAL;
 	}
@@ -226,6 +239,7 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	/* Still need to call vfs_open after filehandle_create() */
 	new_fh = filehandle_create(k_filename, flags);
 	if(new_fh == NULL) {
+		kfree(k_filename);
 		*retval = -1;
 		return 1;
 	}
@@ -247,6 +261,8 @@ sys_open(const char *filename, int flags, int32_t * retval)
 	/* Handles EINVAL, ENXIO, ENODEV */
 	result = vfs_open(k_filename_copy, new_fh->fh_perm, 0, &new_fh->fh_vnode);
 	if(result){
+		kfree(k_filename);
+		kfree(k_filename_copy);
 		*retval = result;
 		filehandle_destroy(new_fh);
 		return result;
@@ -254,13 +270,15 @@ sys_open(const char *filename, int flags, int32_t * retval)
 
 	new_fh->num_open_proc++;
 	curproc->filetable[free_index] = new_fh;
+	kfree(k_filename);
+	kfree(k_filename_copy);
 	*retval = free_index;
 
 	return 0;
 }
 
 int 
-sys_close(int fd, int32_t * retval)
+sys_close(int fd, int32_t *retval)
 {
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = EBADF;
@@ -275,7 +293,7 @@ sys_close(int fd, int32_t * retval)
 }
 
 void
-sys_close_helper(struct filehandle * fh, int fd) {
+sys_close_helper(struct filehandle *fh, int fd) {
 	/* Must acquire fh_lock before calling! */
 	KASSERT(fh != NULL);
 	fh->num_open_proc--;
@@ -292,7 +310,7 @@ sys_close_helper(struct filehandle * fh, int fd) {
 }
 
 int
-sys_dup2(int fdold, int fdnew, int32_t * retval)
+sys_dup2(int fdold, int fdnew, int32_t *retval)
 {
 	if(fdold < 0 || fdold > 63 || 
 		fdnew < 0 || fdnew > 63 ||
