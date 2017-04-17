@@ -317,7 +317,7 @@ free_pages(vaddr_t addr, pid_t owner)
 	spinlock_release(&coremap_lock);
 	
 	if(not_found) {
-		panic("free_kpages was unable to find the address passed!\n");
+		panic("free_pages was unable to find the address passed!\n");
 	}
 }
 
