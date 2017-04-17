@@ -74,6 +74,9 @@ as_create(void)
 	as->stack_size = 0;
 
 	as->the_num = 10;
+
+	as->as_pid = 0;
+
 	return as;
 }
 
@@ -135,7 +138,7 @@ void
 as_destroy(struct addrspace *as)
 {
 	region_list_destroy(as->regions);
-	pt_destroy(as->pt);
+	pt_destroy(as);
 	kfree(as);
 }
 

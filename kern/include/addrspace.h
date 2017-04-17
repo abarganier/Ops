@@ -64,6 +64,7 @@ struct addrspace {
         vaddr_t stack_start;
         size_t stack_size;
         int the_num;
+        pid_t as_pid;
 #endif
 };
 
@@ -166,7 +167,7 @@ struct pagetable
 };
 
 struct pagetable *pt_create(void);
-int32_t pt_destroy(struct pagetable *);
+int32_t pt_destroy(struct addrspace *);
 int32_t pt_copy(struct addrspace *, struct addrspace *);
 int32_t pt_add(struct pagetable *, vaddr_t, paddr_t *);
 int32_t pt_create_region(struct addrspace *, struct mem_region *);

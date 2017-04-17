@@ -57,8 +57,10 @@ pt_create(void)
 
 static
 void
-pt_cleanup_entries(struct pagetable *pt)
+pt_cleanup_entries(struct addrspace *as)
 {
+	struct pagetable *pt = as->pt;
+
 	if(pt == NULL || pt->head == NULL){
 		return;
 	}
@@ -67,17 +69,18 @@ pt_cleanup_entries(struct pagetable *pt)
 
 	while(current != NULL){
 		struct pt_entry *to_destroy = current;
-		free_kpages(to_destroy->ppn);
+//		free_kpages(to_destroy->ppn);
+		free_upages(to_destroy->vpn, as->as_pid);
 		current = current->next_entry;
 		pte_destroy(to_destroy);
 	}
 }
 
 int32_t 
-pt_destroy(struct pagetable *pt)
+pt_destroy(struct addrspace *as)
 {
-	pt_cleanup_entries(pt);
-	kfree(pt);
+	pt_cleanup_entries(as);
+	kfree(as->pt);
 	return 0;
 }
 // int32_t 

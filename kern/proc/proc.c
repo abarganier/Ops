@@ -484,7 +484,10 @@ proc_setas(struct addrspace *newas)
 
 	spinlock_acquire(&proc->p_lock);
 	oldas = proc->p_addrspace;
+
 	proc->p_addrspace = newas;
+	proc->p_addrspace->as_pid = proc->pid;
+
 	spinlock_release(&proc->p_lock);
 	return oldas;
 }
