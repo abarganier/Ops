@@ -87,12 +87,15 @@ tlb_set_bitflags(unsigned int *vpn, unsigned int *ppn) {
 	tlb_set_valid(ppn);
 }
 
+
+
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
 	(void)faulttype;
 
 	struct addrspace *as = proc_getas();
+
 	if(as == NULL) {
 		panic("ERROR: Current process addrspace undefined in vm_fault!\n");
 	}
@@ -105,7 +108,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		err = get_ppn(as, faultaddress, &ppn);
 		if(err) {
 			kprintf("ERROR: get_ppn failed in vm_fault!\n");
-			return err;
+			return ENOMEM;
 		}
 
 		vaddr_t vpn = get_vpn(faultaddress);
@@ -113,7 +116,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		tlb_random(vpn, ppn);
 
 	} else {
-		panic("SEGFAULT\n");
+		// kprintf("ERROR: SEGFAULT in vm_fault!\n");
+		return EFAULT;
 	}
 
 	return 0;

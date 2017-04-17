@@ -73,6 +73,7 @@ as_create(void)
 	as->stack_start = 0;
 	as->stack_size = 0;
 
+	as->the_num = 10;
 	return as;
 }
 
