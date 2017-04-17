@@ -137,6 +137,10 @@ syscall(struct trapframe *tf)
 			err = sys_dup2((int)tf->tf_a0, (int)tf->tf_a1, &retval);
 			break;
 
+		case SYS_sbrk:
+			err = sys_sbrk((intptr_t)tf->tf_a0, &retval);
+			break;
+
 		case SYS_waitpid:
 			err = sys_waitpid((pid_t)tf->tf_a0, (userptr_t)tf->tf_a1, (int)tf->tf_a2, &retval);
 			break;

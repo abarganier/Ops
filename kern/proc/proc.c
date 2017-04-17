@@ -67,10 +67,14 @@ bool is_kproc = true;
 struct proc_table *
 proc_table_create(void) 
 {
-	struct proc_table * new_ptable;
+	struct proc_table *new_ptable;
 	new_ptable = kmalloc(sizeof(*new_ptable));
 	if(new_ptable == NULL) {
 		return NULL;
+	}
+
+	for(int i = 0; i < 256; i++) {
+		new_ptable->table[i] = NULL;
 	}
 
 	new_ptable->pt_lock = lock_create("ptable_lock");
@@ -83,9 +87,10 @@ proc_table_create(void)
 }
 
 void 
-proc_table_destroy(struct proc_table * table) 
+proc_table_destroy(struct proc_table *table) 
 {	
 	lock_destroy(table->pt_lock);
+	kfree(table);
 }
 
 /*
@@ -173,6 +178,7 @@ proc_create(const char *name)
 		is_kproc = false;
 	}
 
+
 	/* First process has no parent, shouldn't 
 	   be valid index into process table. 
 	   Valid value set during sys_fork() */
@@ -180,6 +186,10 @@ proc_create(const char *name)
 
 	proc->exited = false;
 	proc->exit_status = 0;
+
+	for(int i = 0; i < 64; i++) {
+		proc->filetable[i] = NULL;
+	}
 
 	return proc;
 }
@@ -539,7 +549,7 @@ filehandle_destroy(struct filehandle *filehandle)
  * Mainly used as a supporting method for the fork() syscall.
  */
 int
-filetable_copy(struct proc * src, struct proc * dest)
+filetable_copy(struct proc *src, struct proc *dest)
 {
 	if(src == NULL || dest == NULL) {
 		return 1;
@@ -552,6 +562,8 @@ filetable_copy(struct proc * src, struct proc * dest)
 			dest->filetable[i] = src->filetable[i];
 			dest->filetable[i]->num_open_proc++;
 			lock_release(src->filetable[i]->fh_lock);
+		} else {
+			dest->filetable[i] = NULL;
 		}
 	}
 	return 0;

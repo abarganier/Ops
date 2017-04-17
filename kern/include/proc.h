@@ -72,7 +72,7 @@ struct proc_table {
 };
 
 pid_t next_pid(void);
-struct proc_table * proc_table_create(void);
+struct proc_table *proc_table_create(void);
 void proc_table_destroy(struct proc_table *);
 
 
@@ -113,7 +113,7 @@ struct proc {
 
 	/* Since we have single threaded processes, no need to lock */
 	/* Something to keep in mind, though! */
-	struct filehandle* filetable[64];
+	struct filehandle *filetable[64];
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
