@@ -230,7 +230,7 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 	p_table->table[pid] = NULL;
 	lock_release(p_table->pt_lock);
 
-	// proc_destroy(childproc); // leak memory for now, fix in asst3
+	proc_destroy(childproc); // leak memory for now, fix in asst3
 
 	*retval = pid;
 	return 0;

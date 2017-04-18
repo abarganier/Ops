@@ -112,7 +112,7 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 
 	p_table->table[curproc->pid] = NULL;
 	curproc->exited = true;
-	curproc->exit_status = _MKWAIT_EXIT(code);
+	curproc->exit_status = _MKWAIT_SIG(sig);
 	V(&curproc->exit_sem);
 	thread_exit();
 	/*
