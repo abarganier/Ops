@@ -37,6 +37,7 @@
 #include <current.h>
 #include <mips/tlb.h>
 #include <addrspace.h>
+#include <signal.h>
 #include <vm.h>
 
 static struct spinlock coremap_lock = SPINLOCK_INITIALIZER;
@@ -109,7 +110,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 		err = get_ppn(as, faultaddress, &ppn);
 		if(err) {
-			kprintf("ERROR: get_ppn failed in vm_fault!\n");
+			// kprintf("ERROR: get_ppn failed in vm_fault!\n");
 			return ENOMEM;
 		}
 

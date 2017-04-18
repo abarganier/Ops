@@ -129,12 +129,40 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	return 0;
 }
 
+static
+bool
+heap_overlaps_stack(struct addrspace *as, intptr_t heap_increase)
+{
+	return (vaddr_t)(as->stack_start - as->stack_size) < (vaddr_t)(as->heap_start + as->heap_size + heap_increase);
+}
+
 pid_t
 sys_sbrk(intptr_t amount, int32_t *retval)
 {
-	(void)amount;
-	(void)retval;
+	kprintf("In sys_sbrk with amount = %d\n", (int)amount);
+	struct addrspace *as = proc_getas();
+	if(amount % PAGE_SIZE > 0) {
+		*retval = EINVAL;
+		return EINVAL;
+	}
 
+	if(amount < 0 && (size_t)(amount*-1) > as->heap_size) {
+		*retval = EINVAL;
+		return EINVAL;
+	}
+
+	if(amount > 0 && heap_overlaps_stack(as, amount)) {
+		*retval = ENOMEM;
+		return ENOMEM;
+	}
+
+	*retval = as->heap_start + as->heap_size;
+
+	kprintf("Leaving sys_sbrk\n");
+	kprintf("as->heap_size = %u\n", as->heap_size);
+	kprintf("as->heap_start = %x\n", as->heap_start);
+	kprintf("heap ending address = %x\n", as->heap_start + as->heap_size);
+	as->heap_size += amount;
 	return 0;
 }
 

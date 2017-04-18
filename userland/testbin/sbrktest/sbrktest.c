@@ -521,6 +521,8 @@ test5_helper(void)
 
 	p = dosbrk(0);
 	tprintf("This should produce fatal signal 11 (SIGSEGV).\n");
+	tprintf("sbrk returned break: %x\n", (unsigned int)p);
+	tprintf("addr (SEGFAULT) with offset is: %x\n", &((long*)p)[10]);
 	((long *)p)[10] = 0;
 	errx(1, "FAILED: I didn't crash");
 }

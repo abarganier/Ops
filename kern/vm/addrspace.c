@@ -289,27 +289,27 @@ static
 bool
 as_in_heap(struct addrspace *as, vaddr_t vaddr)
 {
-	return (vaddr >= as->heap_start) && (vaddr < as->heap_start + as->heap_size);
+	return (vaddr >= as->heap_start) && (vaddr < ((vaddr_t) as->heap_start + as->heap_size));
 }
 
 bool
 vaddr_in_segment(struct addrspace *as, vaddr_t vaddr)
 {
 	bool res = is_valid_region(as->regions, vaddr, 0) || as_in_stack(as, vaddr) || as_in_heap(as, vaddr);
-	if(!res) {
-		kprintf("!=============================================!\n");
-		kprintf("ERROR: is_valid_region returning false! vaddr: %x\n", vaddr);
-		kprintf("Process PID: %d\n", curproc->pid);
-		kprintf("as->stack_start: %x\n", as->stack_start);
-		kprintf("as->stack_size: %x\n", as->stack_size);
-		kprintf("Stack starting vaddr: %x\n", as->stack_start - as->stack_size);
-		kprintf("as->heap_start: %x\n", as->heap_start);
-		kprintf("as->heap_size: %x\n", as->heap_size);
-		print_mem_regions(as->regions);
-		kprintf("is_valid_region: %s\n", is_valid_region(as->regions, vaddr, 0) ? "true" : "false");
-		kprintf("as_in_heap: %s\n", as_in_heap(as, vaddr) ? "true" : "false");
-		kprintf("as_in_stack: %s\n", as_in_stack(as, vaddr) ? "true" : "false");
-		kprintf("!=============================================!\n");
-	}
+	// if(!res) {
+	// 	kprintf("!=============================================!\n");
+	// 	kprintf("ERROR: is_valid_region returning false! vaddr: %x\n", vaddr);
+	// 	kprintf("Process PID: %d\n", curproc->pid);
+	// 	kprintf("as->stack_start: %x\n", as->stack_start);
+	// 	kprintf("as->stack_size: %x\n", as->stack_size);
+	// 	kprintf("Stack starting vaddr: %x\n", as->stack_start - as->stack_size);
+	// 	kprintf("as->heap_start: %x\n", as->heap_start);
+	// 	kprintf("as->heap_size: %x\n", as->heap_size);
+	// 	print_mem_regions(as->regions);
+	// 	kprintf("is_valid_region: %s\n", is_valid_region(as->regions, vaddr, 0) ? "true" : "false");
+	// 	kprintf("as_in_heap: %s\n", as_in_heap(as, vaddr) ? "true" : "false");
+	// 	kprintf("as_in_stack: %s\n", as_in_stack(as, vaddr) ? "true" : "false");
+	// 	kprintf("!=============================================!\n");
+	// }
 	return res;
 }
