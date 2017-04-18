@@ -91,14 +91,14 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	err = filetable_copy(curproc, newproc);
 	if(err){
-//		proc_destroy(newproc);
+		proc_destroy(newproc);
 		*retval = -1;
 		return err;
 	}
 
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace, newproc->pid);
 	if(err){
-//		proc_destroy(newproc); 
+		proc_destroy(newproc); 
 		*retval = err;
 		return err;
 	}
@@ -110,8 +110,8 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	child_tf = trapframe_copy(parent_tf);
 	if(child_tf == NULL){
 		kprintf("Child trap frame is null \n");
-//		kfree(child_tf);
-//		proc_destroy(newproc);
+		kfree(child_tf);
+		proc_destroy(newproc);
 		*retval = 1;
 		return 1;
 	}
@@ -119,9 +119,9 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	err = thread_fork("child", newproc, (void*)enter_forked_process, child_tf, (unsigned long)newproc->pid);
 	if(err) {
-//		kfree(child_tf);
+		kfree(child_tf);
 		kprintf("Failed thread_fork\n");
-//		proc_destroy(newproc);
+		proc_destroy(newproc);
 		*retval = err;
 		return err;
 	}
@@ -230,7 +230,8 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 	p_table->table[pid] = NULL;
 	lock_release(p_table->pt_lock);
 
-	// proc_destroy(childproc); // leak memory for now, fix in asst3
+	//Return here
+	proc_destroy(childproc); // leak memory for now, fix in asst3
 
 	*retval = pid;
 	return 0;
@@ -250,7 +251,7 @@ sys_exit(int exitcode)
 	if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
 		lock_acquire(p_table->pt_lock);
 		thread_exit();
-		// proc_destroy(p_table->table[pid]);
+		//proc_destroy(p_table->table[pid]);
 		p_table->table[pid] = NULL;
 		lock_release(p_table->pt_lock);
 		return;

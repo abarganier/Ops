@@ -167,7 +167,7 @@ proc_create(const char *name)
 		lock_acquire(p_table->pt_lock);
 	}
 
-	/* Handles locking */ //CURRENTLY LOCK HANDLING IS COMMENTED OUT
+	/* Handles locking */ 
 	proc->pid = next_pid();	//Move above if() statement if this doens't work out
 
 	KASSERT(p_table->table[proc->pid] == NULL);
@@ -281,15 +281,28 @@ proc_destroy(struct proc *proc)
 		as_destroy(as);
 	}
 
+
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
-	kfree(proc->p_name);
-	kfree(proc);
+	
+	//Clean up semaphore, filehandles, name, thread
+	//sem_destroy(&proc->exit_sem);
+	
 
 	/*
 	 *Need to destroy all file handles with not in use
 	 */
+
+	// for(size_t i=0; i<64; i++){
+	// 	if(proc->filetable[i] != NULL){
+	// 		filehandle_destroy(proc->filetable[i]);	
+	// 	}	
+	// }
+
+
+	kfree(proc->p_name);
+	kfree(proc);
 
 }
 

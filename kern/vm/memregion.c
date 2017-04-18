@@ -269,6 +269,8 @@ mem_region_destroy(struct mem_region *region)
 	if(region == NULL) {
 		panic("Tried to free a NULL mem_region!\n");
 	}
+	
+	//Memory leak?
 	kfree(region);
 }
 
