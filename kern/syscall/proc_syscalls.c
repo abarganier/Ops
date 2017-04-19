@@ -250,10 +250,10 @@ sys_exit(int exitcode)
 	if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
 		kprintf("SYS_EXIT: The parent has already exited! Cleaning myself up\n");
 		lock_acquire(p_table->pt_lock);
-
+		thread_exit();
+		
 		proc_destroy(p_table->table[pid]);
 		p_table->table[pid] = NULL;
-		thread_exit();
 		lock_release(p_table->pt_lock);
 		return;
 	}
