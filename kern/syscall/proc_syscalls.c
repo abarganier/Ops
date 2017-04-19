@@ -91,7 +91,7 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	/*
 	 * Manually increment refcount of newproc's p_cwd
 	 */
-	VOP_INCREF(newproc->p_cwd);
+	VOP_INCREF(curproc->p_cwd);
 
 
 	err = filetable_copy(curproc, newproc);
@@ -255,7 +255,7 @@ sys_exit(int exitcode)
 	if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
 		lock_acquire(p_table->pt_lock);
 		thread_exit();
-		//proc_destroy(p_table->table[pid]);
+		proc_destroy(p_table->table[pid]);
 		p_table->table[pid] = NULL;
 		lock_release(p_table->pt_lock);
 		return;

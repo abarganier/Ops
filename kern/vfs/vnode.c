@@ -109,16 +109,16 @@ vnode_decref(struct vnode *vn)
 	else {
 		/* Don't decrement; pass the reference to VOP_RECLAIM. */
 		destroy = true;
-		kprintf("VNODE WILL BE DESTROYED\n");
+//		kprintf("VNODE WILL BE DESTROYED\n");
 	}
 	spinlock_release(&vn->vn_countlock);
-	kprintf("Spinlock released in vnode_decref\n");
+//	kprintf("Spinlock released in vnode_decref\n");
 
 	if (destroy) {
 		result = VOP_RECLAIM(vn);
 		if (result != 0 && result != EBUSY) {
 			// XXX: lame.
-			kprintf("vfs: Warning: VOP_RECLAIM: %s\n",
+//			kprintf("vfs: Warning: VOP_RECLAIM: %s\n",
 				strerror(result));
 		}
 	}

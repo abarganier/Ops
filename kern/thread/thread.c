@@ -515,7 +515,7 @@ thread_fork(const char *name,
 
 	newthread = thread_create(name);
 	if (newthread == NULL) {
-//		thread_destroy(newthread);
+		thread_destroy(newthread);
 		return ENOMEM;
 	}
 
@@ -524,7 +524,7 @@ thread_fork(const char *name,
 	/* Allocate a stack */
 	newthread->t_stack = kmalloc(STACK_SIZE);
 	if (newthread->t_stack == NULL) {
-//		thread_destroy(newthread);
+		thread_destroy(newthread);
 		return ENOMEM;
 	}
 	kprintf("THREAD_FORK CKPT 3\n");
@@ -544,7 +544,7 @@ thread_fork(const char *name,
 	result = proc_addthread(proc, newthread);	//returns 0 on success
 	if (result) {
 		/* thread_destroy will clean up the stack */
-//		thread_destroy(newthread);
+		thread_destroy(newthread);
 		return result;
 	}
 
