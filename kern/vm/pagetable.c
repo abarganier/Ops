@@ -27,12 +27,17 @@
  * SUCH DAMAGE.
  */
 
+
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
+#include <spl.h>
+#include <cpu.h>
+#include <proc.h>
+#include <current.h>
+#include <mips/tlb.h>
 #include <addrspace.h>
 #include <vm.h>
-#include <proc.h>
 
 vaddr_t
 get_vpn(vaddr_t vaddr) {
@@ -286,6 +291,7 @@ pte_destroy(struct pt_entry *pte, pid_t owner_pid)
 	} else {
 		kprintf("pte_destroy: NOTE - pte_destroy called on page with no assigned ppn\n");
 	}
+	tlb_null_entry(pte->vpn);
 	kfree(pte);
 	return 0;
 }
