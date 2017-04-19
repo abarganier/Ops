@@ -283,7 +283,6 @@ proc_destroy(struct proc *proc)
 			proc->p_addrspace = NULL;
 		}
 		as_destroy(as);
-		(void) as;
 	}
 
 

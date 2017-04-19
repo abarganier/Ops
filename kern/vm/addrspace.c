@@ -174,6 +174,8 @@ as_deactivate(void)
 	 * anything. See proc.c for an explanation of why it (might)
 	 * be needed.
 	 */
+	kprintf("AS_DEACTIVATE CALLED BUT IT DOESN'T DO ANYTHING!\n");
+	//Return here
 }
 
 static
