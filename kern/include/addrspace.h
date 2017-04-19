@@ -172,7 +172,7 @@ int32_t pt_destroy(struct addrspace *);
 int32_t pt_copy(struct addrspace *, struct addrspace *);
 int32_t pt_add(struct addrspace *, vaddr_t, paddr_t *);
 int32_t pt_create_region(struct addrspace *, struct mem_region *);
-int32_t pt_remove(struct pagetable *, vaddr_t);
+int32_t pt_remove(struct addrspace *, vaddr_t);
 struct pt_entry *pt_get_pte(struct pagetable *, vaddr_t);
 
 /*
@@ -186,7 +186,7 @@ struct pt_entry
 };
 
 struct pt_entry *pte_create(void);
-int32_t pte_destroy(struct pt_entry *);
+int32_t pte_destroy(struct pt_entry *, pid_t);
 vaddr_t get_vpn(vaddr_t);
 
 /*
