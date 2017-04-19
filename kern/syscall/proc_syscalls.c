@@ -85,14 +85,9 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	}
 
 	newproc->ppid = curproc->pid;
-
-	//Set p_cwd of new proc to that of parent proc
 	newproc->p_cwd = curproc->p_cwd;
-	/*
-	 * Manually increment refcount of newproc's p_cwd
-	 */
-	VOP_INCREF(newproc->p_cwd);
 
+	VOP_INCREF(newproc->p_cwd);
 
 	err = filetable_copy(curproc, newproc);
 	if(err){
@@ -144,7 +139,7 @@ heap_overlaps_stack(struct addrspace *as, intptr_t heap_increase)
 pid_t
 sys_sbrk(intptr_t amount, int32_t *retval)
 {
-	kprintf("In sys_sbrk with amount = %d\n", (int)amount);
+	// kprintf("In sys_sbrk with amount = %d\n", (int)amount);
 	struct addrspace *as = proc_getas();
 	if(amount % PAGE_SIZE > 0) {
 		*retval = EINVAL;
@@ -163,10 +158,10 @@ sys_sbrk(intptr_t amount, int32_t *retval)
 
 	*retval = as->heap_start + as->heap_size;
 
-	kprintf("Leaving sys_sbrk\n");
-	kprintf("as->heap_size = %u\n", as->heap_size);
-	kprintf("as->heap_start = %x\n", as->heap_start);
-	kprintf("heap ending address = %x\n", as->heap_start + as->heap_size);
+	// kprintf("Leaving sys_sbrk\n");
+	// kprintf("as->heap_size = %u\n", as->heap_size);
+	// kprintf("as->heap_start = %x\n", as->heap_start);
+	// kprintf("heap ending address = %x\n", as->heap_start + as->heap_size);
 	as->heap_size += amount;
 	return 0;
 }
@@ -253,10 +248,11 @@ sys_exit(int exitcode)
 	}
 
 	if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
+		kprintf("SYS_EXIT: The parent has already exited! Cleaning myself up\n");
 		lock_acquire(p_table->pt_lock);
-		thread_exit();
-		//proc_destroy(p_table->table[pid]);
+		proc_destroy(p_table->table[pid]);
 		p_table->table[pid] = NULL;
+		thread_exit();
 		lock_release(p_table->pt_lock);
 		return;
 	}

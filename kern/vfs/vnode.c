@@ -109,10 +109,9 @@ vnode_decref(struct vnode *vn)
 	else {
 		/* Don't decrement; pass the reference to VOP_RECLAIM. */
 		destroy = true;
-		kprintf("VNODE WILL BE DESTROYED\n");
 	}
+
 	spinlock_release(&vn->vn_countlock);
-	kprintf("Spinlock released in vnode_decref\n");
 
 	if (destroy) {
 		result = VOP_RECLAIM(vn);
