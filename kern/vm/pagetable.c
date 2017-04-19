@@ -132,6 +132,8 @@ pte_set_ppn(struct pt_entry *pte, struct addrspace *as)
 		return NOPPN;
 	}
 
+	bzero((void *)PADDR_TO_KVADDR(ppn), PAGE_SIZE);
+
 	pte->ppn = ppn;
 	return 0;
 }
