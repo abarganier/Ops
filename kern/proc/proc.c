@@ -229,7 +229,11 @@ proc_destroy(struct proc *proc)
 
 	/* VFS fields */
 	if (proc->p_cwd) {
-		// VOP_DECREF(proc->p_cwd); // CAUSES DEADLOCK
+		// kprintf("PROC %d wants to die\n", proc->pid);
+		// kprintf("Address of proc's vnode: %p\n", proc->p_cwd);
+		// kprintf("Vnode's refcount: %d \n", proc->p_cwd->vn_refcount);
+		VOP_DECREF(proc->p_cwd);
+		//vfs_close(proc->p_cwd);  //Closes vnode if ref_count is 0
 		proc->p_cwd = NULL;
 	}
 

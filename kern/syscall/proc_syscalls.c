@@ -88,6 +88,11 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	//Set p_cwd of new proc to that of parent proc
 	newproc->p_cwd = curproc->p_cwd;
+	/*
+	 * Manually increment refcount of newproc's p_cwd
+	 */
+	VOP_INCREF(newproc->p_cwd);
+
 
 	err = filetable_copy(curproc, newproc);
 	if(err){
