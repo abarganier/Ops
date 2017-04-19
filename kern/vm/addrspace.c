@@ -313,3 +313,10 @@ vaddr_in_segment(struct addrspace *as, vaddr_t vaddr)
 	// }
 	return res;
 }
+
+int
+as_clean_heap(struct addrspace *as)
+{
+	(void)as;
+	return 0;
+}

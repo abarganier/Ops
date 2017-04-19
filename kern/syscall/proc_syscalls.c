@@ -136,9 +136,11 @@ heap_overlaps_stack(struct addrspace *as, intptr_t heap_increase)
 	return (vaddr_t)(as->stack_start - as->stack_size) < (vaddr_t)(as->heap_start + as->heap_size + heap_increase);
 }
 
-pid_t
+int
 sys_sbrk(intptr_t amount, int32_t *retval)
 {
+	int err;
+
 	// kprintf("In sys_sbrk with amount = %d\n", (int)amount);
 	struct addrspace *as = proc_getas();
 	if(amount % PAGE_SIZE > 0) {
@@ -162,7 +164,15 @@ sys_sbrk(intptr_t amount, int32_t *retval)
 	// kprintf("as->heap_size = %u\n", as->heap_size);
 	// kprintf("as->heap_start = %x\n", as->heap_start);
 	// kprintf("heap ending address = %x\n", as->heap_start + as->heap_size);
+
 	as->heap_size += amount;
+
+	err = as_clean_heap(as);
+	if(err) {
+		*retval = err;
+		return err;
+	}
+
 	return 0;
 }
 
