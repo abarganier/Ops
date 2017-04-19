@@ -148,26 +148,13 @@ falls_in_region(struct mem_region *region, vaddr_t vaddr)
 	return (vaddr >= region->start_addr) && (vaddr < region->start_addr + region->size);
 }
 
-// static
-// bool
-// valid_perms(struct mem_region *region, int permissions)
-// {
-// 	if(permissions == VM_FAULT_READONLY) {
-// 		kprintf("WARNING: valid_perms called with a VM_FAULT_READONLY!\n");
-// 	}
-
-// 	if(permissions == VM_FAULT_READ) {
-// 		return region->readable;
-// 	}
-
-// 	if(permissions == VM_FAULT_WRITE) {
-// 		return region->writeable;
-// 	}
-
-// 	kprintf("WARNING: valid_perms called with unknown permissions code: %d\n", permissions);
-
-// 	return false;
-// }
+static
+bool
+region_falls_in_page(struct mem_region *region, vaddr_t vpn)
+{
+	vaddr_t reg_start_vpn = get_vpn(region->start_addr);
+	return (vpn >= reg_start_vpn) && (vpn < region->start_addr + region->size);
+}
 
 static
 bool
@@ -201,6 +188,27 @@ is_valid_region(struct region_list *list, vaddr_t vaddr, int permissions)
 	
 	while(current != NULL) {
 		if(falls_in_region(current, vaddr) /*&& valid_perms(current, permissions)*/) {
+			found_valid_region = true;
+			break;
+		}
+		current = current->next;
+	}
+	
+	return found_valid_region;
+}
+
+bool
+region_uses_page(struct region_list *list, vaddr_t vaddr)
+{
+	if(list == NULL || list->head == NULL) {
+		return false;
+	}
+
+	struct mem_region *current = list->head;
+	bool found_valid_region = false;
+	
+	while(current != NULL) {
+		if(region_falls_in_page(current, vaddr) /*&& valid_perms(current, permissions)*/) {
 			found_valid_region = true;
 			break;
 		}

@@ -167,7 +167,7 @@ sys_sbrk(intptr_t amount, int32_t *retval)
 
 	as->heap_size += amount;
 
-	err = as_clean_heap(as);
+	err = as_clean_segments(as);
 	if(err) {
 		*retval = err;
 		return err;
@@ -335,6 +335,7 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 
 	kfree(argv);
 	return 0;
+
 }
 
 int

@@ -124,7 +124,8 @@ int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 bool              vaddr_in_segment(struct addrspace *as, vaddr_t vaddr);
-int               as_clean_heap(struct addrspace *as);
+bool              page_still_needed(struct addrspace *as, vaddr_t vaddr);
+int               as_clean_segments(struct addrspace *as);
 
 /*
  *  Supporting structure for addrspace struct. Essentially a LinkedList to
@@ -139,6 +140,7 @@ struct region_list *region_list_create(void);
 void region_list_destroy(struct region_list *);
 bool add_region(struct region_list *, vaddr_t, size_t, int, int, int);
 bool is_valid_region(struct region_list *, vaddr_t, int);
+bool region_uses_page(struct region_list *, vaddr_t);
 bool region_available(struct region_list *, vaddr_t, size_t);
 void print_mem_regions(struct region_list *);
 /*

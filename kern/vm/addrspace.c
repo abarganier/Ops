@@ -296,27 +296,94 @@ bool
 vaddr_in_segment(struct addrspace *as, vaddr_t vaddr)
 {
 	bool res = is_valid_region(as->regions, vaddr, 0) || as_in_stack(as, vaddr) || as_in_heap(as, vaddr);
-	// if(!res) {
-	// 	kprintf("!=============================================!\n");
-	// 	kprintf("ERROR: is_valid_region returning false! vaddr: %x\n", vaddr);
-	// 	kprintf("Process PID: %d\n", curproc->pid);
-	// 	kprintf("as->stack_start: %x\n", as->stack_start);
-	// 	kprintf("as->stack_size: %x\n", as->stack_size);
-	// 	kprintf("Stack starting vaddr: %x\n", as->stack_start - as->stack_size);
-	// 	kprintf("as->heap_start: %x\n", as->heap_start);
-	// 	kprintf("as->heap_size: %x\n", as->heap_size);
-	// 	print_mem_regions(as->regions);
-	// 	kprintf("is_valid_region: %s\n", is_valid_region(as->regions, vaddr, 0) ? "true" : "false");
-	// 	kprintf("as_in_heap: %s\n", as_in_heap(as, vaddr) ? "true" : "false");
-	// 	kprintf("as_in_stack: %s\n", as_in_stack(as, vaddr) ? "true" : "false");
-	// 	kprintf("!=============================================!\n");
-	// }
+	if(!res) {
+		kprintf("!=============================================!\n");
+		kprintf("ERROR: is_valid_region returning false! vaddr: %x\n", vaddr);
+		kprintf("Process PID: %d\n", curproc->pid);
+		kprintf("as->stack_start: %x\n", as->stack_start);
+		kprintf("as->stack_size: %x\n", as->stack_size);
+		kprintf("Stack starting vaddr: %x\n", as->stack_start - as->stack_size);
+		kprintf("as->heap_start: %x\n", as->heap_start);
+		kprintf("as->heap_size: %x\n", as->heap_size);
+		print_mem_regions(as->regions);
+		kprintf("is_valid_region: %s\n", is_valid_region(as->regions, vaddr, 0) ? "true" : "false");
+		kprintf("as_in_heap: %s\n", as_in_heap(as, vaddr) ? "true" : "false");
+		kprintf("as_in_stack: %s\n", as_in_stack(as, vaddr) ? "true" : "false");
+		kprintf("!=============================================!\n");
+	}
+	return res;
+}
+
+bool
+page_still_needed(struct addrspace *as, vaddr_t vaddr)
+{
+	bool res = as_in_heap(as, vaddr) || as_in_stack(as, vaddr) || region_uses_page(as->regions, vaddr);
+	if(!res) {
+		kprintf("!=============================================!\n");
+		kprintf("NOTE: page_still_needed() returning false! Page vaddr: %x\n", vaddr);
+		kprintf("Process PID: %d\n", curproc->pid);
+		kprintf("as->stack_start: %x\n", as->stack_start);
+		kprintf("as->stack_size: %x\n", as->stack_size);
+		kprintf("Stack starting vaddr: %x\n", as->stack_start - as->stack_size);
+		kprintf("as->heap_start: %x\n", as->heap_start);
+		kprintf("as->heap_size: %x\n", as->heap_size);
+		print_mem_regions(as->regions);
+		kprintf("is_valid_region: %s\n", is_valid_region(as->regions, vaddr, 0) ? "true" : "false");
+		kprintf("as_in_heap: %s\n", as_in_heap(as, vaddr) ? "true" : "false");
+		kprintf("as_in_stack: %s\n", as_in_stack(as, vaddr) ? "true" : "false");
+		kprintf("!=============================================!\n");
+	}
 	return res;
 }
 
 int
-as_clean_heap(struct addrspace *as)
+as_clean_segments(struct addrspace *as)
 {
-	(void)as;
+	if(as == NULL) {
+		kprintf("as_clean_heap: Warning! NULL addrspace pointer passed!\n");
+		return EINVAL;
+	}
+
+	KASSERT(as->pt != NULL);
+
+	struct pagetable *pt = as->pt;
+
+	if(pt->head != NULL) {
+
+		struct pt_entry *prev = NULL;
+		struct pt_entry *current = pt->head;
+		struct pt_entry *to_destroy = NULL;
+
+		while(current != NULL) {
+
+			if(!page_still_needed(as, current->vpn)) {
+
+				to_destroy = current;
+
+				if(current == pt->head && current == pt->tail) {
+					pt->head = NULL;
+					pt->tail = NULL;
+				} else if(current == pt->head) {
+					pt->head = current->next_entry;
+				} else if(current == pt->tail) {
+					pt->tail = prev;
+				}
+
+				if(prev != NULL) {
+					prev->next_entry = current->next_entry;
+				}
+				current = current->next_entry;
+				to_destroy->next_entry = NULL;
+
+				pte_destroy(to_destroy, as->as_pid);
+
+			} else {
+
+				prev = current;
+				current = current->next_entry;
+			}
+		}
+
+	}
 	return 0;
 }

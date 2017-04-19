@@ -283,6 +283,8 @@ pte_destroy(struct pt_entry *pte, pid_t owner_pid)
 		KASSERT(pte->ppn % PAGE_SIZE == 0);	
 		uint32_t cm_index = pte->ppn / PAGE_SIZE;
 		free_page_at_index(cm_index, owner_pid, pte->vpn);
+	} else {
+		kprintf("pte_destroy: NOTE - pte_destroy called on page with no assigned ppn\n");
 	}
 	kfree(pte);
 	return 0;
