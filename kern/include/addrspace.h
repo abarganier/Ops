@@ -123,7 +123,9 @@ int               as_define_region(struct addrspace *as,
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
-bool              vaddr_in_segment(struct addrspace *, vaddr_t);
+bool              vaddr_in_segment(struct addrspace *as, vaddr_t vaddr);
+bool              page_still_needed(struct addrspace *as, vaddr_t vaddr);
+int               as_clean_segments(struct addrspace *as);
 
 /*
  *  Supporting structure for addrspace struct. Essentially a LinkedList to
@@ -138,6 +140,7 @@ struct region_list *region_list_create(void);
 void region_list_destroy(struct region_list *);
 bool add_region(struct region_list *, vaddr_t, size_t, int, int, int);
 bool is_valid_region(struct region_list *, vaddr_t, int);
+bool region_uses_page(struct region_list *, vaddr_t);
 bool region_available(struct region_list *, vaddr_t, size_t);
 void print_mem_regions(struct region_list *);
 /*
@@ -171,7 +174,7 @@ int32_t pt_destroy(struct addrspace *);
 int32_t pt_copy(struct addrspace *, struct addrspace *);
 int32_t pt_add(struct addrspace *, vaddr_t, paddr_t *);
 int32_t pt_create_region(struct addrspace *, struct mem_region *);
-int32_t pt_remove(struct pagetable *, vaddr_t);
+int32_t pt_remove(struct addrspace *, vaddr_t);
 struct pt_entry *pt_get_pte(struct pagetable *, vaddr_t);
 
 /*
@@ -185,7 +188,7 @@ struct pt_entry
 };
 
 struct pt_entry *pte_create(void);
-int32_t pte_destroy(struct pt_entry *);
+int32_t pte_destroy(struct pt_entry *, pid_t);
 vaddr_t get_vpn(vaddr_t);
 
 /*

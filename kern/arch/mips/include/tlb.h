@@ -59,6 +59,7 @@ void tlb_random(uint32_t entryhi, uint32_t entrylo);
 void tlb_write(uint32_t entryhi, uint32_t entrylo, uint32_t index);
 void tlb_read(uint32_t *entryhi, uint32_t *entrylo, uint32_t index);
 int tlb_probe(uint32_t entryhi, uint32_t entrylo);
+void tlb_null_entry(vaddr_t);
 
 /*
  * TLB entry fields.

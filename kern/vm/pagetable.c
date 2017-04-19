@@ -27,12 +27,17 @@
  * SUCH DAMAGE.
  */
 
+
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
+#include <spl.h>
+#include <cpu.h>
+#include <proc.h>
+#include <current.h>
+#include <mips/tlb.h>
 #include <addrspace.h>
 #include <vm.h>
-#include <proc.h>
 
 vaddr_t
 get_vpn(vaddr_t vaddr) {
@@ -70,10 +75,9 @@ pt_cleanup_entries(struct addrspace *as)
 	while(current != NULL){
 		struct pt_entry *to_destroy = current;
 		// kprintf("pt_cleanup_entries - Freeing coremap page with vpn: %x, owner: %u\n", to_destroy->vpn, as->as_pid);
-		size_t cm_index = to_destroy->ppn / PAGE_SIZE;
-		free_page_at_index(cm_index, as->as_pid, to_destroy->vpn);
+
 		current = current->next_entry;
-		pte_destroy(to_destroy);
+		pte_destroy(to_destroy, as->as_pid);
 	}
 }
 
@@ -128,6 +132,8 @@ pte_set_ppn(struct pt_entry *pte, struct addrspace *as)
 		return NOPPN;
 	}
 
+	bzero((void *)PADDR_TO_KVADDR(ppn), PAGE_SIZE);
+
 	pte->ppn = ppn;
 	return 0;
 }
@@ -156,7 +162,7 @@ pt_add(struct addrspace *as, vaddr_t vaddr, paddr_t *ppn_ret)
 		int32_t err;
 		err = pte_set_ppn(pte, as);
 		if(err) {
-			pte_destroy(pte);
+			pte_destroy(pte, as->as_pid);
 			return err;
 		}
 
@@ -180,15 +186,19 @@ pt_add(struct addrspace *as, vaddr_t vaddr, paddr_t *ppn_ret)
 }
 
 int32_t 
-pt_remove(struct pagetable *pt, vaddr_t vaddr)
+pt_remove(struct addrspace *as, vaddr_t vaddr)
 {
-	if(pt == NULL){
+
+	if(as == NULL || as->pt == NULL){
 		return EINVAL;
 	}
+
+	struct pagetable *pt = as->pt;
 
 	if(pt->head == NULL){
 		return EPTEMPTY;
 	}
+
 	KASSERT(pt->tail != NULL);
 	
 	bool found = false;
@@ -225,7 +235,7 @@ pt_remove(struct pagetable *pt, vaddr_t vaddr)
 		pt->head = pte_current->next_entry;
 	}
 
-	pte_destroy(pte_current);
+	pte_destroy(pte_current, as->as_pid);
 
 	return 0;
 }
@@ -268,13 +278,22 @@ pte_create(void)
 	}
 	pte->next_entry = NULL;
 	pte->vpn = 0;
+	pte->ppn = 0;
 
 	return pte;
 }
 
 int32_t 
-pte_destroy(struct pt_entry *pte)
+pte_destroy(struct pt_entry *pte, pid_t owner_pid)
 {
+	if(pte->ppn > 0) {
+		KASSERT(pte->ppn % PAGE_SIZE == 0);	
+		uint32_t cm_index = pte->ppn / PAGE_SIZE;
+		free_page_at_index(cm_index, owner_pid, pte->vpn);
+	} else {
+		kprintf("pte_destroy: NOTE - pte_destroy called on page with no assigned ppn\n");
+	}
+	tlb_null_entry(pte->vpn);
 	kfree(pte);
 	return 0;
 }

@@ -88,6 +88,23 @@ tlb_set_bitflags(unsigned int *vpn, unsigned int *ppn) {
 	tlb_set_valid(ppn);
 }
 
+void
+tlb_null_entry(vaddr_t vpn)
+{
+	int spl;
+	int index = -1;
+	
+	tlb_set_valid(&vpn);
+	tlb_set_dirty(&vpn);
+	
+	spl = splhigh();
+	index = tlb_probe(vpn, 0);
+	if(index >= 0) {
+		tlb_write(TLBHI_INVALID(index), TLBLO_INVALID(), index);
+	}
+	splx(spl);
+}
+
 
 
 int
@@ -118,7 +135,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		tlb_set_bitflags(&vpn, &ppn);
 
 		spl = splhigh();
-		tlb_random(vpn, ppn);
+		if(tlb_probe(vpn, 0) < 0) {
+			tlb_random(vpn, ppn);
+		}
 		splx(spl);
 
 	} else {
