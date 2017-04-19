@@ -519,15 +519,13 @@ thread_fork(const char *name,
 		return ENOMEM;
 	}
 
-	kprintf("THREAD_FORK CKPT 2\n");
-
 	/* Allocate a stack */
 	newthread->t_stack = kmalloc(STACK_SIZE);
 	if (newthread->t_stack == NULL) {
 		thread_destroy(newthread);
 		return ENOMEM;
 	}
-	kprintf("THREAD_FORK CKPT 3\n");
+
 	thread_checkstack_init(newthread);
 
 	/*
