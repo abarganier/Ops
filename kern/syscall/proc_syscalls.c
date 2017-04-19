@@ -86,7 +86,6 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	newproc->ppid = curproc->pid;
 	newproc->p_cwd = curproc->p_cwd;
-
 	VOP_INCREF(newproc->p_cwd);
 
 	err = filetable_copy(curproc, newproc);
@@ -110,7 +109,6 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	child_tf = trapframe_copy(parent_tf);
 	if(child_tf == NULL){
 		kprintf("Child trap frame is null \n");
-		kfree(child_tf);
 		proc_destroy(newproc);
 		*retval = 1;
 		return 1;
@@ -211,7 +209,7 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 	}
 
 	if(!childproc->exited) {
-		P(&childproc->exit_sem);
+		P(childproc->exit_sem);
 	}
 
 	KASSERT(childproc->exited);
@@ -243,23 +241,27 @@ sys_exit(int exitcode)
 	int pid = curproc->pid;
 	int ppid = curproc->ppid;
 
+	lock_acquire(p_table->pt_lock);	//add
 	if(ppid >= 0 && ppid < 256 && p_table->table[ppid] == NULL) {
+		panic("THERE'S NO PARENT HERE!!!");
+		lock_release(p_table->pt_lock); //add
 		return;
 	}
 
 	if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
 		kprintf("SYS_EXIT: The parent has already exited! Cleaning myself up\n");
-		lock_acquire(p_table->pt_lock);
-		thread_exit();
-		
+		thread_exit();	
 		proc_destroy(p_table->table[pid]);
 		p_table->table[pid] = NULL;
 		lock_release(p_table->pt_lock);
 		return;
 	}
+
+	lock_release(p_table->pt_lock); //add
+
 	curproc->exited = true;
 	curproc->exit_status = _MKWAIT_EXIT(exitcode);
-	V(&curproc->exit_sem);
+	V(curproc->exit_sem);
 	thread_exit();
 }
 

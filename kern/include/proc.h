@@ -98,7 +98,7 @@ struct proc {
 	pid_t pid;
 	pid_t ppid;
 
-	struct semaphore exit_sem;  /* Semaphore used by waitpid()/exit() */
+	struct semaphore *exit_sem;  /* Semaphore used by waitpid()/exit() */
 	struct spinlock p_lock;		/* Lock for this structure */
 	unsigned p_numthreads;		/* Number of threads in this process */
 

@@ -100,9 +100,9 @@ proc_table_destroy(struct proc_table *table)
 pid_t
 next_pid(void)
 {
-	// if(!is_kproc) {
-	// 	lock_acquire(p_table->pt_lock);
-	// }
+	if(!is_kproc) {
+		lock_acquire(p_table->pt_lock);
+	}
 
 	//KASSERT(pid_counter < 256 && pid_counter >= 0);
 	pid_t pid;
@@ -126,7 +126,7 @@ next_pid(void)
 
 	pid_counter++;
 	if(!is_kproc) {
-//		lock_release(p_table->pt_lock);
+		lock_release(p_table->pt_lock);
 	}
 	
 	return pid;
@@ -153,7 +153,7 @@ proc_create(const char *name)
 	proc->p_numthreads = 0;
 	spinlock_init(&proc->p_lock);
 
-	proc->exit_sem = *sem_create("process_exit_sem", 0);
+	proc->exit_sem = sem_create("process_exit_sem", 0);
 
 	/* VM fields */
 	proc->p_addrspace = NULL;
@@ -161,14 +161,14 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
+	/* Handles locking */ 
+	proc->pid = next_pid();	//Move above if() statement if this doens't work out
 
 
 	if(!is_kproc) {
 		lock_acquire(p_table->pt_lock);
 	}
 
-	/* Handles locking */ 
-	proc->pid = next_pid();	//Move above if() statement if this doens't work out
 
 	KASSERT(p_table->table[proc->pid] == NULL);
 	p_table->table[proc->pid] = proc;
@@ -283,6 +283,7 @@ proc_destroy(struct proc *proc)
 			proc->p_addrspace = NULL;
 		}
 		as_destroy(as);
+		(void) as;
 	}
 
 
@@ -357,13 +358,14 @@ proc_create_runprogram(const char *name)
 	}
 	spinlock_release(&curproc->p_lock);
 
+	
+	newproc->pid = next_pid(); //MOVE ABOUT IF() IF THIS DOESN'T WORK OUT
 
-
+	
 	if(!is_kproc) {
 		lock_acquire(p_table->pt_lock);
 	}
 
-	newproc->pid = next_pid(); //MOVE ABOUT IF() IF THIS DOESN'T WORK OUT
  
 	KASSERT(p_table->table[newproc->pid] == NULL);
 	p_table->table[newproc->pid] = newproc;
@@ -555,6 +557,11 @@ void
 filehandle_destroy(struct filehandle *filehandle)
 {
 	KASSERT(filehandle != NULL);
+	
+	// lock_acquire(filehandle->fh_lock); //add
+	// vfs_close(filehandle->fh_vnode);
+	// lock_release(filehandle->fh_lock); //add
+
 	lock_destroy(filehandle->fh_lock);
 	kfree(filehandle->fh_name);
 	kfree(filehandle);

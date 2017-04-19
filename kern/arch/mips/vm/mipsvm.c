@@ -110,7 +110,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 		err = get_ppn(as, faultaddress, &ppn);
 		if(err) {
-			// kprintf("ERROR: get_ppn failed in vm_fault!\n");
+			kprintf("ERROR: get_ppn failed in vm_fault!\n");
 			return ENOMEM;
 		}
 
@@ -346,6 +346,7 @@ free_page_at_index(size_t index, pid_t owner, vaddr_t vpn)
 
 	KASSERT((vaddr_t)get_vaddr(entry) == vpn);
 	KASSERT((pid_t)get_owner(entry) == owner);
+	(void) owner;
 
 	coremap[index] = 0;
 
