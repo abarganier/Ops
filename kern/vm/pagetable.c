@@ -129,7 +129,7 @@ pte_set_ppn(struct pt_entry *pte, struct addrspace *as)
 
 	ppn = alloc_upages(npages, pte->vpn, as->as_pid);
 	if(ppn <= 0) {
-		return NOPPN;
+		return ENOMEM;
 	}
 
 	bzero((void *)PADDR_TO_KVADDR(ppn), PAGE_SIZE);
@@ -163,7 +163,7 @@ pt_add(struct addrspace *as, vaddr_t vaddr, paddr_t *ppn_ret)
 		err = pte_set_ppn(pte, as);
 		if(err) {
 			pte_destroy(pte, as->as_pid);
-			return err;
+			return ENOMEM;
 		}
 
 		*ppn_ret = pte->ppn;
@@ -286,15 +286,17 @@ pte_create(void)
 int32_t 
 pte_destroy(struct pt_entry *pte, pid_t owner_pid)
 {
-	if(pte->ppn > 0) {
-		KASSERT(pte->ppn % PAGE_SIZE == 0);	
-		uint32_t cm_index = pte->ppn / PAGE_SIZE;
-		free_page_at_index(cm_index, owner_pid, pte->vpn);
+	if(pte != NULL) {
+		if(pte->ppn > 0) {
+			KASSERT(pte->ppn % PAGE_SIZE == 0);	
+			uint32_t cm_index = pte->ppn / PAGE_SIZE;
+			free_page_at_index(cm_index, owner_pid, pte->vpn);
+		}
+		tlb_null_entry(pte->vpn);
+		kfree(pte);
 	} else {
-		kprintf("pte_destroy: NOTE - pte_destroy called on page with no assigned ppn\n");
+		kprintf("WARNING: pte_destroy called on null pt_entry pointer!\n");
 	}
-	tlb_null_entry(pte->vpn);
-	kfree(pte);
 	return 0;
 }
 

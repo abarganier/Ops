@@ -119,7 +119,7 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t new_pid)
 	err = as_copy_regions(old, newas);
 	if(err) {
 		as_destroy(newas);
-		return 1;
+		return ENOMEM;
 	}
 	newas->heap_start = old->heap_start;
 	newas->heap_size = old->heap_size;
@@ -129,7 +129,7 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t new_pid)
 	err = pt_copy(old, newas);
 	if(err) {
 		as_destroy(newas);
-		return 1;
+		return ENOMEM;
 	}
 
 	*ret = newas;
@@ -139,9 +139,11 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t new_pid)
 void
 as_destroy(struct addrspace *as)
 {
-	region_list_destroy(as->regions);
-	pt_destroy(as);
-	kfree(as);
+	if(as != NULL) {
+		region_list_destroy(as->regions);
+		pt_destroy(as);
+		kfree(as);
+	}
 }
 
 

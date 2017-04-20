@@ -106,6 +106,7 @@ next_pid(void)
 
 	//KASSERT(pid_counter < 256 && pid_counter >= 0);
 	pid_t pid;
+	bool pid_found = false;
 
 	if(pid_counter > 255) {
 		pid_counter = PID_MIN;
@@ -113,6 +114,7 @@ next_pid(void)
 
 	for(pid = pid_counter; pid < 256; pid++) {
 		if(p_table->table[pid] == NULL) {
+			pid_found = true;
 			break;
 		} else {
 			pid_counter++;
@@ -122,6 +124,10 @@ next_pid(void)
 		}
 	}
 
+	if(!pid_found) {
+		kprintf("next_pid(): ERROR! No free PID was available in the process table!\n");
+	}
+	
 	KASSERT(p_table->table[pid] == NULL);
 
 	pid_counter++;

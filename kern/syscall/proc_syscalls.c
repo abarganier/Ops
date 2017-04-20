@@ -80,8 +80,8 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	newproc = proc_create_wrapper("child proc");
 	if(newproc == NULL){
-		*retval = 1;
-		return 1;
+		*retval = ENOMEM;
+		return ENOMEM;
 	}
 
 	newproc->ppid = curproc->pid;
@@ -91,15 +91,15 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	err = filetable_copy(curproc, newproc);
 	if(err){
 		proc_destroy(newproc);
-		*retval = -1;
-		return err;
+		*retval = ENOMEM;
+		return ENOMEM;
 	}
 
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace, newproc->pid);
 	if(err){
 		proc_destroy(newproc); 
-		*retval = err;
-		return err;
+		*retval = ENOMEM;
+		return ENOMEM;
 	}
 
 	newproc->p_addrspace->as_pid = newproc->pid;
@@ -108,10 +108,9 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	child_tf = trapframe_copy(parent_tf);
 	if(child_tf == NULL){
-		kprintf("Child trap frame is null \n");
 		proc_destroy(newproc);
-		*retval = 1;
-		return 1;
+		*retval = ENOMEM;
+		return ENOMEM;
 	}
 	
 
@@ -165,12 +164,13 @@ sys_sbrk(intptr_t amount, int32_t *retval)
 
 	as->heap_size += amount;
 
-	err = as_clean_segments(as);
-	if(err) {
-		*retval = err;
-		return err;
+	if(amount < 0) {
+		err = as_clean_segments(as);
+		if(err) {
+			*retval = err;
+			return err;
+		}
 	}
-
 	return 0;
 }
 
