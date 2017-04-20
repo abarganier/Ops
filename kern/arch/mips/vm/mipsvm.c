@@ -105,8 +105,6 @@ tlb_null_entry(vaddr_t vpn)
 	splx(spl);
 }
 
-
-
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
@@ -135,6 +133,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		tlb_set_bitflags(&vpn, &ppn);
 
 		spl = splhigh();
+		// Might want to put an else here to replace the old with the new,
+		// but why would a vm_fault be triggered if the vpn was already
+		// in the TLB?
 		if(tlb_probe(vpn, 0) < 0) {
 			tlb_random(vpn, ppn);
 		}
@@ -365,9 +366,9 @@ free_page_at_index(size_t index, pid_t owner, vaddr_t vpn)
 
 	KASSERT((vaddr_t)get_vaddr(entry) == vpn);
 	KASSERT((pid_t)get_owner(entry) == owner);
-	(void) owner;
 
 	coremap[index] = 0;
+	coremap_used_pages--;
 
 	spinlock_release(&coremap_lock);
 
@@ -390,7 +391,7 @@ unsigned
 int
 coremap_used_bytes() {
 	spinlock_acquire(&coremap_lock);
-	unsigned int bytes = coremap_used_pages * 4096;
+	unsigned int bytes = coremap_used_pages * PAGE_SIZE;
 	spinlock_release(&coremap_lock);
 	return bytes;
 }
