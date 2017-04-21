@@ -59,17 +59,7 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 		return EFAULT;
 	}
 
-	char kbuf[buflen];
-	if(kbuf == NULL) {
-		*retval = ENOMEM;
-		return ENOMEM;
-	} 
-
-	int result = copyin((const_userptr_t) buf, kbuf, buflen);
-	if(result){
-		*retval = result;
-		return result;
-	}
+	int result = 0;
 
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = EBADF;
@@ -92,15 +82,15 @@ sys_write(int fd, const void *buf, size_t buflen, int32_t *retval)
 		return EINVAL;
 	}
 
+	lock_acquire(curproc->filetable[fd]->fh_lock);
+	
 	struct filehandle *fh = curproc->filetable[fd];	
 	struct iovec iov;
 	struct uio u;
 	
-	lock_acquire(fh->fh_lock);
-	
 	iov.iov_ubase = (userptr_t)buf;
 	iov.iov_len = buflen;
-	u.uio_iov = &iov;	
+	u.uio_iov = &iov;
 	u.uio_iovcnt = 1; 
 	u.uio_resid = buflen;
 	u.uio_offset = fh->fh_offset_value;
@@ -136,17 +126,7 @@ sys_read(int fd, void *buf, size_t buflen, int32_t *retval)
 		return EFAULT;
 	}
 
-	char kbuf[buflen];
-	if(kbuf == NULL) {
-		*retval = ENOMEM;
-		return ENOMEM;
-	}
-
-	int result = copyin((const_userptr_t)buf, kbuf, buflen);
-	if(result){
-		*retval = result;
-		return result;
-	}
+	int result = 0;
 
 	if(fd < 0 || fd > 63 || curproc->filetable[fd] == NULL) {
 		*retval = -1;
