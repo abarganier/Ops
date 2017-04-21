@@ -68,6 +68,7 @@ enter_forked_process(struct trapframe *tf, unsigned long nothing)
 	trap.tf_epc += 4;
 
 	// Potential memory leak
+	kfree(tf);
 	mips_usermode(&trap);
 }
 
