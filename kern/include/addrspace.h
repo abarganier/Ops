@@ -63,7 +63,6 @@ struct addrspace {
         size_t heap_size;
         vaddr_t stack_start;
         size_t stack_size;
-        int the_num;
         pid_t as_pid;
 #endif
 };

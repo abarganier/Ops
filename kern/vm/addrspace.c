@@ -73,8 +73,6 @@ as_create(void)
 	as->stack_start = 0;
 	as->stack_size = 0;
 
-	as->the_num = 10;
-
 	as->as_pid = 0;
 
 	return as;
@@ -247,7 +245,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		if(success) {
 			as_define_heap(as);
 		} else {
-			return 1;
+			return ENOMEM;
 		}
 	}
 

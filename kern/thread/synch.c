@@ -156,17 +156,19 @@ lock_create(const char *name)
 		return NULL;
 	}
 
+	spinlock_init(&lock->lk_spinlock);
+
 	HANGMAN_LOCKABLEINIT(&lock->lk_hangman, lock->lk_name);
 	
 	lock->lk_wchan = wchan_create(lock->lk_name);
 	if (lock->lk_wchan == NULL) {
+		spinlock_cleanup(&lock->lk_spinlock);
 		kfree(lock->lk_name);
 		kfree(lock);
 		return NULL;
 	}
 	
 	lock->lk_thread = NULL;	
-	spinlock_init(&lock->lk_spinlock);
 
 	return lock;
 }
@@ -251,14 +253,22 @@ cv_create(const char *name)
 		return NULL;
 	}
 
+	spinlock_init(&cv->cv_spinlock);
+
 	cv->cv_name = kstrdup(name);
 	if (cv->cv_name==NULL) {
+		spinlock_cleanup(&cv->cv_spinlock);
 		kfree(cv);
 		return NULL;
 	}
 	
-	spinlock_init(&cv->cv_spinlock);
 	cv->cv_wchan = wchan_create(cv->cv_name);
+	if(cv->cv_wchan == NULL) {
+		spinlock_cleanup(&cv->cv_spinlock);
+		kfree(cv->cv_name);
+		kfree(cv);
+		return NULL;
+	}
 	
 	return cv;
 }
@@ -327,14 +337,18 @@ rwlock_create(const char * name) {
 		return NULL;
 	}
 
+	spinlock_init(&rw->rw_spinlock);
+
 	rw->rwlock_name = kstrdup(name);
 	if(rw->rwlock_name == NULL) {
+		spinlock_cleanup(&rw->rw_spinlock);
 		kfree(rw);
 		return NULL;
 	}
 
 	rw->r_wchan = wchan_create("read channel");
 	if(rw->r_wchan == NULL) {
+		spinlock_cleanup(&rw->rw_spinlock);
 		kfree(rw->rwlock_name);
 		kfree(rw);
 		return NULL;
@@ -342,13 +356,12 @@ rwlock_create(const char * name) {
 	
 	rw->w_wchan = wchan_create("write channel");
 	if(rw->w_wchan == NULL) {
+		spinlock_cleanup(&rw->rw_spinlock);
 		kfree(rw->rwlock_name);
 		wchan_destroy(rw->r_wchan);
 		kfree(rw);
 		return NULL;
 	}
-
-	spinlock_init(&rw->rw_spinlock);
 
 	rw->r_count = 0;
 	rw->w_wait = false;

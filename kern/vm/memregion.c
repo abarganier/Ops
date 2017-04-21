@@ -264,6 +264,7 @@ mem_region_create(void)
 	new_region->next = NULL;
 	new_region->start_addr = 0;
 	new_region->size = 0;
+	
 	// new_region->writeable = false;
 	// new_region->readable = false;
 	// new_region->executable = false;

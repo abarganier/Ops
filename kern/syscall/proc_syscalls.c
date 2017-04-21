@@ -53,10 +53,10 @@
 
 struct proc_table *p_table;
 
-static char *kargs;
+// static char *kargs;
 struct lock *exec_lock;
-static char *kprogram;
-static bool first_exec = true;
+// static char *kprogram;
+// static bool first_exec = true;
 
 void
 enter_forked_process(struct trapframe *tf, unsigned long nothing)
@@ -67,7 +67,6 @@ enter_forked_process(struct trapframe *tf, unsigned long nothing)
 	trap.tf_a3 = 0;
 	trap.tf_epc += 4;
 
-	// Potential memory leak
 	kfree(tf);
 	mips_usermode(&trap);
 }
@@ -202,11 +201,6 @@ sys_sbrk(intptr_t amount, int32_t *retval)
 
 	*retval = as->heap_start + as->heap_size;
 
-	// kprintf("Leaving sys_sbrk\n");
-	// kprintf("as->heap_size = %u\n", as->heap_size);
-	// kprintf("as->heap_start = %x\n", as->heap_start);
-	// kprintf("heap ending address = %x\n", as->heap_start + as->heap_size);
-
 	as->heap_size += amount;
 
 	if(amount < 0) {
@@ -289,28 +283,6 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 void
 sys_exit(int exitcode) 
 {
-
-	// int pid = curproc->pid;
-	// int ppid = curproc->ppid;
-
-	// lock_acquire(p_table->pt_lock);	//add
-	// if(ppid >= 0 && ppid < 256 && p_table->table[ppid] == NULL) {
-	// 	panic("THERE'S NO PARENT HERE!!!");
-	// 	lock_release(p_table->pt_lock); //add
-	// 	return;
-	// }
-
-	// if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
-	// 	kprintf("SYS_EXIT: The parent has already exited! Cleaning myself up\n");
-	// 	thread_exit();	
-	// 	//proc_destroy(p_table->table[pid]);
-	// 	p_table->table[pid] = NULL;
-	// 	lock_release(p_table->pt_lock);
-	// 	return;
-	// }
-
-	// lock_release(p_table->pt_lock); //add
-
 	curproc->exited = true;
 	curproc->exit_status = _MKWAIT_EXIT(exitcode);
 	V(curproc->exit_sem);
@@ -379,7 +351,7 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 		kprintf("Copyout of argv failed!\n");
 		return 1;
 	}
-
+	
 	kfree(argv);
 	return 0;
 
@@ -388,25 +360,25 @@ build_user_stack(char *kargs, size_t *lengths, size_t num_ptrs, userptr_t stkptr
 int
 sys_execv(const char *program, char **args, int32_t *retval)
 {
-	if(first_exec) {
-		kargs = kmalloc(ARG_MAX);
-		KASSERT(kargs != NULL);
-		kprogram = kmalloc(PATH_MAX);
-		KASSERT(kprogram != NULL);
-		first_exec = false;
-	}
+	// if(first_exec) {
+	// 	kargs = kmalloc(ARG_MAX);
+	// 	KASSERT(kargs != NULL);
+	// 	kprogram = kmalloc(PATH_MAX);
+	// 	KASSERT(kprogram != NULL);
+	// 	first_exec = false;
+	// }
 	lock_acquire(exec_lock);
+	char *kargs = kmalloc(ARG_MAX);
+	char *kprogram = kmalloc(PATH_MAX);
 	bzero(kargs, ARG_MAX);
 	bzero(kprogram, PATH_MAX);
 	size_t result;
 
 	/* Use program pointer as src to copy in the program string to a kernel string space. Use only for address space call*/
 	result = copyinstr((const_userptr_t) program, kprogram, PATH_MAX, &result); 
-	if(result){
-		if(first_exec){
-			kfree(kargs); //Mem leak? Correctly freeing?
-			kfree(kprogram);
-		}
+	if(result) {
+		kfree(kargs);
+		kfree(kprogram);
 		lock_release(exec_lock);
 		*retval = result;
 		return result;
@@ -419,24 +391,19 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	/*Copy in 4 bytes of arg pointer to check validity*/
 	result = copyin((const_userptr_t)args, &cur_head_of_args, 4);
 	if(result){
-		if(first_exec){
-			kfree(kargs); //Mem leak? Correctly freeing?
-			kfree(kprogram);
-		}
+		kfree(kargs);
+		kfree(kprogram);
 		lock_release(exec_lock);
 		*retval = result;
 		return result;
 	}
 	
-	while(cur_head_of_args != NULL){
-
+	while(cur_head_of_args != NULL) {
 		index++;
 		result = copyin((const_userptr_t) args+(index*4), &cur_head_of_args, 4);
 		if(result){
-			if(first_exec){
-				kfree(kargs); //Mem leak? Correctly freeing?
-				kfree(kprogram);
-			}
+			kfree(kargs);
+			kfree(kprogram);
 			lock_release(exec_lock);
 			*retval = result;
 			return result;
@@ -445,11 +412,9 @@ sys_execv(const char *program, char **args, int32_t *retval)
 
 	char ** karg_ptrs = kmalloc(sizeof(char *) * index);
 	if(karg_ptrs == NULL) {
-		if(first_exec){
-			kfree(kargs); //Mem leak? Correctly freeing?
-			kfree(kprogram);
-		}
-		kfree(karg_ptrs); //Mem leak? Correctly freeing?
+		kfree(kargs);
+		kfree(kprogram);
+		kfree(karg_ptrs);
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
@@ -457,13 +422,10 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	for(size_t j=0; j<index; j++){
 		result = copyin((const_userptr_t) (args+j), &karg_ptrs[j], 4);
 		if(result){
-			if(first_exec){
-				kfree(kargs); //Mem leak? Correctly freeing?
-				kfree(kprogram);
-			}
-			kfree(karg_ptrs); //Mem leak? Correctly freeing?
+			kfree(kargs);
+			kfree(kprogram);
+			kfree(karg_ptrs);
 			lock_release(exec_lock);
-			kprintf("Copying pointers failed \n");
 			*retval = result;
 			return result;
 		}
@@ -478,16 +440,12 @@ sys_execv(const char *program, char **args, int32_t *retval)
 
 		result = copyinstr((const_userptr_t) karg_ptrs[arg_num], (char *)&kargs[karg_size], rem_space, &ret_length);
 		if(result){
-			if(first_exec){
-				kfree(kargs); //Mem leak? Correctly freeing?
-				kfree(kprogram);
-			}
-			kfree(karg_ptrs); //Mem leak? Correctly freeing?
+			kfree(kargs);
+			kfree(kprogram);
+			kfree(karg_ptrs);
 			kfree(lengths);
-
 			lock_release(exec_lock);
 			*retval = result;
-			kprintf("Copying in argument string number %d failed!\n", arg_num);
 			return result;
 		}
 
@@ -523,15 +481,11 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	/* Open the file. */
 	result = vfs_open(kprogram, O_RDONLY, 0, &v);
 	if (result) {
-		if(first_exec){
-			kfree(kargs); //Mem leak? Correctly freeing?
-			kfree(kprogram);
-		}
-		kfree(karg_ptrs); //Mem leak? Correctly freeing?
+		kfree(kargs);
+		kfree(kprogram);
+		kfree(karg_ptrs);
 		kfree(lengths);
-
 		lock_release(exec_lock);
-
 		*retval = result;
 		return result;
 	}
@@ -539,16 +493,12 @@ sys_execv(const char *program, char **args, int32_t *retval)
  	/* Create a new address space. */
 	as = as_create();
 	if (as == NULL) {
-		if(first_exec){
-			kfree(kargs); //Mem leak? Correctly freeing?
-			kfree(kprogram);
-		}
-		kfree(karg_ptrs); //Mem leak? Correctly freeing?
+		kfree(kargs);
+		kfree(kprogram);
+		kfree(karg_ptrs); 
 		kfree(lengths);
-
 		lock_release(exec_lock);
 		vfs_close(v);
-
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
@@ -561,19 +511,15 @@ sys_execv(const char *program, char **args, int32_t *retval)
  	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
 	if (result) {
-		if(first_exec){
-			kfree(kargs); //Mem leak? Correctly freeing?
-			kfree(kprogram);
-		}
-
-		lock_release(exec_lock);
+		kfree(kargs);
+		kfree(kprogram);
 		vfs_close(v);
 		proc_setas(old_as);
-		as_activate();
-		
-		kfree(karg_ptrs); //Mem leak? Correctly freeing?
+		as_activate();	
+		as_destroy(as);
+		kfree(karg_ptrs);
 		kfree(lengths);
-		
+		lock_release(exec_lock);
 		*retval = result;
 		return result;
 	}
@@ -584,17 +530,14 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
 	if (result) {
-		if(first_exec){
-			kfree(kargs); //Mem leak? Correctly freeing?
-			kfree(kprogram);
-		}
-
-		lock_release(exec_lock);
+		kfree(kargs);
+		kfree(kprogram);
 		proc_setas(old_as);
-		as_activate();
-		
+		as_activate();	
+		as_destroy(as);
 		kfree(karg_ptrs);
 		kfree(lengths);
+		lock_release(exec_lock);
 		*retval = result;
 		return result;
 	}
@@ -602,19 +545,14 @@ sys_execv(const char *program, char **args, int32_t *retval)
  	//Copy arguments from kernel space to userpsace
 	result = build_user_stack(kargs, lengths, index, (userptr_t)stackptr, karg_size);
 	if(result) {
-		
-		if(first_exec){
-			kfree(kargs); //Mem leak? Correctly freeing?
-			kfree(kprogram);
-		}
-	
-		lock_release(exec_lock);
+		kfree(kargs);
+		kfree(kprogram);
 		proc_setas(old_as);
 		as_activate();
-		
+		as_destroy(as);
 		kfree(karg_ptrs);
 		kfree(lengths);
-		
+		lock_release(exec_lock);
 		*retval = result;
 		return result;
 	}
@@ -622,13 +560,12 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	stackptr -= (karg_size + ((index+1)*4));
 	userptr_t argv_ptr_copy = (userptr_t)stackptr;
 
+	kfree(kargs);
+	kfree(kprogram);
 	kfree(karg_ptrs);
 	kfree(lengths);
-
 	lock_release(exec_lock);
 	as_destroy(old_as);
-
-	//Mem leak? Do we need to free kargs and kprogram?
 
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
 	enter_new_process(index, argv_ptr_copy, NULL, stackptr, entrypoint);

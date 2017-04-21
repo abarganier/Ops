@@ -89,6 +89,11 @@ proc_table_create(void)
 void 
 proc_table_destroy(struct proc_table *table) 
 {	
+	for(int i = 0; i < 256; i++) {
+		if(table->table[i] != NULL) {
+			proc_destroy(table->table[i]);
+		}
+	}
 	lock_destroy(table->pt_lock);
 	kfree(table);
 }
@@ -188,7 +193,7 @@ proc_create(const char *name)
 
 	int32_t new_pid = next_pid();	
 	if(new_pid < 0) {
-		kprintf("proc_create: Error! new_pid() returned -1\n");
+		kprintf("proc_create: Error! next_pid() unable to find available PID in process table\n");
 		kfree(proc->p_name);
 		spinlock_cleanup(&proc->p_lock);
 		sem_destroy(proc->exit_sem);
@@ -311,11 +316,7 @@ proc_destroy(struct proc *proc)
 
 	/* VFS fields */
 	if (proc->p_cwd) {
-		// kprintf("PROC %d wants to die\n", proc->pid);
-		// kprintf("Address of proc's vnode: %p\n", proc->p_cwd);
-		// kprintf("Vnode's refcount: %d \n", proc->p_cwd->vn_refcount);
 		VOP_DECREF(proc->p_cwd);
-		//vfs_close(proc->p_cwd);  //Closes vnode if ref_count is 0
 		proc->p_cwd = NULL;
 	}
 
@@ -375,12 +376,10 @@ proc_destroy(struct proc *proc)
 	
 	//Clean up semaphore, filehandles, name, thread
 	sem_destroy(proc->exit_sem);
-	
 
 	/*
 	 *Need to destroy all file handles with not in use
 	 */
-
 	for(size_t i=0; i<64; i++){
 		if(proc->filetable[i] != NULL){
 			filehandle_destroy(proc->filetable[i]);	
@@ -440,8 +439,6 @@ proc_create_runprogram(const char *name)
 	}
 	spinlock_release(&curproc->p_lock);
 
-	exec_lock = lock_create("execv_lock");
-	
 	if(is_kproc) {
 		is_kproc = false;
 	}
@@ -626,7 +623,7 @@ filehandle_create(const char *name, int fh_perm)
 	return filehandle;
 }
 
-void 
+void
 filehandle_destroy(struct filehandle *filehandle)
 {
 	KASSERT(filehandle != NULL);

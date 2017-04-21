@@ -330,22 +330,10 @@ sys_dup2(int fdold, int fdnew, int32_t *retval)
 
 		struct filehandle *fh_new = curproc->filetable[fdnew];
 
-		lock_acquire(fh_new->fh_lock);
-
 		KASSERT(fh_new != NULL);
-
-		fh_new->num_open_proc--;
-
-		if(fh_new->num_open_proc < 1) {
-			// vfs_close cannot fail. See vfspath.c:119 for details.
-			vfs_close(fh_new->fh_vnode);
-			curproc->filetable[fdnew] = NULL;
-			lock_release(fh_new->fh_lock);
-			filehandle_destroy(fh_new);
-		} else {
-			curproc->filetable[fdnew] = NULL;
-			lock_release(fh_new->fh_lock);
-		}
+		
+		curproc->filetable[fdnew] = NULL;
+		filehandle_destroy(fh_new);
 	}
 
 	curproc->filetable[fdold]->num_open_proc++;

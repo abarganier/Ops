@@ -37,9 +37,11 @@
 #include <current.h>
 #include <mips/tlb.h>
 #include <addrspace.h>
+#include <proc_syscalls.h>
 #include <signal.h>
 #include <vm.h>
 
+struct lock *exec_lock;
 static struct spinlock coremap_lock = SPINLOCK_INITIALIZER;
 static bool debug_mode = false;
 
@@ -49,7 +51,7 @@ uint32_t num_fixed_pages;	// number of pages used by coremap/kernel/exception ha
 void
 vm_bootstrap(void)
 {
-	/* Do nothing. */
+	exec_lock = lock_create("execv_lock");
 }
 
 static
@@ -193,7 +195,7 @@ bool
 find_pages(uint32_t *index_ptr, uint64_t *coremap, unsigned npages)
 {
 	uint64_t cm_entry;
-	bool found_pages = false;;
+	bool found_pages = false;
 	for(*index_ptr = num_fixed_pages; *index_ptr < coremap_size; (*index_ptr)++) {
 
 		cm_entry = coremap[*index_ptr];

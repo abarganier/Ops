@@ -74,8 +74,6 @@ pt_cleanup_entries(struct addrspace *as)
 
 	while(current != NULL){
 		struct pt_entry *to_destroy = current;
-		// kprintf("pt_cleanup_entries - Freeing coremap page with vpn: %x, owner: %u\n", to_destroy->vpn, as->as_pid);
-
 		current = current->next_entry;
 		pte_destroy(to_destroy, as->as_pid);
 	}
