@@ -71,7 +71,7 @@ struct proc_table {
 	struct lock* pt_lock;
 };
 
-pid_t next_pid(void);
+int32_t next_pid(void);
 struct proc_table *proc_table_create(void);
 void proc_table_destroy(struct proc_table *);
 
@@ -98,6 +98,7 @@ struct proc {
 	pid_t pid;
 	pid_t ppid;
 
+	struct lock *fork_lock;
 	struct semaphore *exit_sem;  /* Semaphore used by waitpid()/exit() */
 	struct spinlock p_lock;		/* Lock for this structure */
 	unsigned p_numthreads;		/* Number of threads in this process */
@@ -126,7 +127,7 @@ void proc_bootstrap(void);
 struct proc *proc_create_runprogram(const char *name);
 
 /*Wrapper that calls static proc_create*/
-struct proc *proc_create_wrapper(const char *name);
+struct proc *proc_create_child(const char *name);
 
 /* Destroy a process. */
 void proc_destroy(struct proc *proc);

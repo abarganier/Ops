@@ -95,7 +95,7 @@ as_copy_regions(struct addrspace *old, struct addrspace *new)
 		success = add_region(new->regions, current_old->start_addr, current_old->size, 1, 1, 1);
 		if(!success) {
 			region_list_destroy(new->regions);
-			return 1;
+			return ENOMEM;
 		}
 		current_old = current_old->next;
 	}
@@ -108,7 +108,7 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t new_pid)
 	struct addrspace *newas;
 
 	newas = as_create();
-	if (newas==NULL) {
+	if (newas == NULL) {
 		return ENOMEM;
 	}
 

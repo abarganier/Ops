@@ -74,30 +74,61 @@ enter_forked_process(struct trapframe *tf, unsigned long nothing)
 pid_t 
 sys_fork(struct trapframe *parent_tf, int32_t *retval)
 {
+	lock_acquire(curproc->fork_lock);
 	int err;
 	struct trapframe *child_tf;
 	struct proc *newproc;
 
-	newproc = proc_create_wrapper("child proc");
+	newproc = proc_create_child("child proc");
 	if(newproc == NULL){
+		lock_release(curproc->fork_lock);
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
 
 	newproc->ppid = curproc->pid;
 	newproc->p_cwd = curproc->p_cwd;
+
+	spinlock_acquire(&newproc->p_lock);
 	VOP_INCREF(newproc->p_cwd);
+	spinlock_release(&newproc->p_lock);
 
 	err = filetable_copy(curproc, newproc);
 	if(err){
+		lock_release(curproc->fork_lock);
 		proc_destroy(newproc);
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
 
+	// Now ready to assign PID, be sure to remove this from
+	// the p_table in future error cases to free PID for the next 
+	// fork call
+	lock_acquire(p_table->pt_lock);
+
+	int32_t new_pid = next_pid();	
+	if(new_pid < 0) {
+		lock_release(curproc->fork_lock);
+		proc_destroy(newproc);
+		*retval = ENOMEM;
+		return ENOMEM;
+	}
+
+	newproc->pid = (pid_t) new_pid;
+	KASSERT(p_table->table[newproc->pid] == NULL);
+	p_table->table[newproc->pid] = newproc;
+
+	lock_release(p_table->pt_lock);
+
 	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace, newproc->pid);
 	if(err){
+		lock_acquire(p_table->pt_lock);
+		KASSERT(p_table->table[newproc->pid] == newproc);
+		p_table->table[newproc->pid] = NULL;
+		lock_release(p_table->pt_lock);
+		lock_release(curproc->fork_lock);
 		proc_destroy(newproc); 
+		
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
@@ -108,7 +139,13 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	child_tf = trapframe_copy(parent_tf);
 	if(child_tf == NULL){
-		proc_destroy(newproc);
+		lock_acquire(p_table->pt_lock);
+		KASSERT(p_table->table[newproc->pid] == newproc);
+		p_table->table[newproc->pid] = NULL;
+		lock_release(p_table->pt_lock);
+		lock_release(curproc->fork_lock);
+		proc_destroy(newproc); 
+		
 		*retval = ENOMEM;
 		return ENOMEM;
 	}
@@ -117,11 +154,18 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 	err = thread_fork("child", newproc, (void*)enter_forked_process, child_tf, (unsigned long)newproc->pid);
 	if(err) {
 		kfree(child_tf);
-		kprintf("Failed thread_fork\n");
-		proc_destroy(newproc);
+		lock_acquire(p_table->pt_lock);
+		KASSERT(p_table->table[newproc->pid] == newproc);
+		p_table->table[newproc->pid] = NULL;
+		lock_release(p_table->pt_lock);
+		lock_release(curproc->fork_lock);
+		proc_destroy(newproc); 
+		
 		*retval = err;
 		return err;
 	}
+
+	lock_release(curproc->fork_lock);
 
 	return 0;
 }
@@ -188,8 +232,6 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 
 	lock_acquire(p_table->pt_lock);
 
-	//KASSERT(p_table->table[pid] != NULL);
-
 	if(pid < PID_MIN || p_table->table[pid] == NULL) {
 		lock_release(p_table->pt_lock);
 		*retval = ESRCH;
@@ -236,9 +278,8 @@ sys_waitpid(pid_t pid, userptr_t status_ptr, int options, int32_t *retval)
 
 	lock_acquire(p_table->pt_lock);
 	p_table->table[pid] = NULL;
-	lock_release(p_table->pt_lock);
-
 	proc_destroy(childproc); // leak memory for now, fix in asst3
+	lock_release(p_table->pt_lock);
 
 	*retval = pid;
 	return 0;
@@ -248,26 +289,26 @@ void
 sys_exit(int exitcode) 
 {
 
-	int pid = curproc->pid;
-	int ppid = curproc->ppid;
+	// int pid = curproc->pid;
+	// int ppid = curproc->ppid;
 
-	lock_acquire(p_table->pt_lock);	//add
-	if(ppid >= 0 && ppid < 256 && p_table->table[ppid] == NULL) {
-		panic("THERE'S NO PARENT HERE!!!");
-		lock_release(p_table->pt_lock); //add
-		return;
-	}
+	// lock_acquire(p_table->pt_lock);	//add
+	// if(ppid >= 0 && ppid < 256 && p_table->table[ppid] == NULL) {
+	// 	panic("THERE'S NO PARENT HERE!!!");
+	// 	lock_release(p_table->pt_lock); //add
+	// 	return;
+	// }
 
-	if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
-		kprintf("SYS_EXIT: The parent has already exited! Cleaning myself up\n");
-		thread_exit();	
-		//proc_destroy(p_table->table[pid]);
-		p_table->table[pid] = NULL;
-		lock_release(p_table->pt_lock);
-		return;
-	}
+	// if(ppid >= 0 && ppid <= 255 && p_table->table[ppid]->exited) {
+	// 	kprintf("SYS_EXIT: The parent has already exited! Cleaning myself up\n");
+	// 	thread_exit();	
+	// 	//proc_destroy(p_table->table[pid]);
+	// 	p_table->table[pid] = NULL;
+	// 	lock_release(p_table->pt_lock);
+	// 	return;
+	// }
 
-	lock_release(p_table->pt_lock); //add
+	// lock_release(p_table->pt_lock); //add
 
 	curproc->exited = true;
 	curproc->exit_status = _MKWAIT_EXIT(exitcode);
@@ -290,8 +331,11 @@ trapframe_copy(struct trapframe *parent_tf)
 		return NULL;
 	}
 
-	struct trapframe *child_tf;
+	struct trapframe *child_tf = NULL;
 	child_tf = kmalloc(sizeof(*child_tf));
+	if(child_tf == NULL) {
+		return NULL;
+	}
 
 	memcpy(child_tf, parent_tf, sizeof(*parent_tf));
 
@@ -581,14 +625,12 @@ sys_execv(const char *program, char **args, int32_t *retval)
 	kfree(lengths);
 
 	lock_release(exec_lock);
+	as_destroy(old_as);
 
 	//Mem leak? Do we need to free kargs and kprogram?
 
 	//Return to userspace using enter_new_process (in kern/arch/mips/locore/trap.c)
 	enter_new_process(index, argv_ptr_copy, NULL, stackptr, entrypoint);
-
-	proc_setas(old_as);
-	as_activate();
 
  	//SHOULD NOT REACH HERE ON SUCCESS
 	*retval = EINVAL;

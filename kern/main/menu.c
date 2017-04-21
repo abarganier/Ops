@@ -44,6 +44,7 @@
 #include <syscall.h>
 #include <test.h>
 #include <prompt.h>
+#include <proc_syscalls.h>
 #include "opt-sfs.h"
 #include "opt-net.h"
 #include "opt-synchprobs.h"
@@ -143,6 +144,11 @@ common_prog(int nargs, char **args)
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
 	 */
+	pid_t res = 0;
+	res = sys_waitpid(proc->pid, NULL, 0, &res);
+	if(res) {
+		panic("sys_waitpid failed to clean up the first user process!\n");
+	}
 
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.

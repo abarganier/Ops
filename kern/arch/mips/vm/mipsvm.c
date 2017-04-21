@@ -125,7 +125,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 		err = get_ppn(as, faultaddress, &ppn);
 		if(err) {
-			kprintf("ERROR: get_ppn failed in vm_fault!\n");
+			// kprintf("ERROR: get_ppn failed in vm_fault!\n");
 			return ENOMEM;
 		}
 
@@ -142,7 +142,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		splx(spl);
 
 	} else {
-		kprintf("ERROR: SEGFAULT in vm_fault! faultaddress: %x\n", faultaddress);
+		// kprintf("ERROR: SEGFAULT in vm_fault! faultaddress: %x\n", faultaddress);
 		return EFAULT;
 	}
 

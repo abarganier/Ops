@@ -220,6 +220,11 @@ sys_open(const char *filename, int flags, int32_t *retval)
 	struct filehandle *new_fh;
 	int result;
 	char *k_filename = kmalloc(sizeof(filename));
+	if(k_filename == NULL) {
+		*retval = ENOMEM;
+		return ENOMEM;
+	}
+
 	size_t size = 0;
 
 	/* Handles EFAULT. Add 1 to strlen for null terminator */
@@ -268,7 +273,6 @@ sys_open(const char *filename, int flags, int32_t *retval)
 		return result;
 	}
 
-	new_fh->num_open_proc++;
 	curproc->filetable[free_index] = new_fh;
 	kfree(k_filename);
 	kfree(k_filename_copy);
@@ -299,7 +303,6 @@ sys_close_helper(struct filehandle *fh, int fd) {
 	fh->num_open_proc--;
 	if(fh->num_open_proc < 1) {
 		// vfs_close cannot fail. See vfspath.c:119 for details.
-		vfs_close(fh->fh_vnode);
 		curproc->filetable[fd] = NULL;
 		lock_release(fh->fh_lock);
 		filehandle_destroy(fh);

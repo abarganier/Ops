@@ -110,9 +110,9 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 		break;
 	}
 
-	lock_acquire(p_table->pt_lock);			//Added
-	p_table->table[curproc->pid] = NULL;
-	lock_release(p_table->pt_lock);			//Added
+	// lock_acquire(p_table->pt_lock);			//Added
+	// p_table->table[curproc->pid] = NULL;
+	// lock_release(p_table->pt_lock);			//Added
 
 	curproc->exited = true;
 	curproc->exit_status = _MKWAIT_SIG(sig);
