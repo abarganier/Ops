@@ -640,7 +640,6 @@ filehandle_destroy(struct filehandle *filehandle)
 		kfree(filehandle->fh_name);
 		kfree(filehandle);
 	} else {
-		VOP_DECREF(filehandle->fh_vnode);
 		lock_release(filehandle->fh_lock);
 	}
 }
