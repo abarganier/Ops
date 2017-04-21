@@ -47,7 +47,7 @@ static
 void
 setup_coremap(void)
 {
-	bzero((void*) PADDR_TO_KVADDR(coremap_paddr), coremap_size);
+	bzero((void*) PADDR_TO_KVADDR(coremap_paddr), coremap_size * sizeof(uint64_t));
 	
 	/*
 	 *	Add coremap entries for pages used by exception handler/kernel
@@ -75,9 +75,9 @@ setup_coremap(void)
 	/*
 	 *	Add coremap entries for pages used by coremap itself
 	 */
-	uint64_t num_cm_pages = (coremap_size * 8) / PAGE_SIZE;	
+	uint64_t num_cm_pages = (coremap_size * sizeof(uint64_t)) / PAGE_SIZE;	
 	num_fixed_pages += num_cm_pages;
-	if(((coremap_size * 8) % PAGE_SIZE) > 0) {
+	if(((coremap_size * sizeof(uint64_t)) % PAGE_SIZE) > 0) {
 		num_cm_pages += 1;
 		num_fixed_pages += 1;
 	}
@@ -85,7 +85,7 @@ setup_coremap(void)
 	first_entry = build_page_entry(num_kern_pages, 0, false, false, true, true, PADDR_TO_KVADDR(coremap_paddr));
 	mid_entry = build_page_entry(num_kern_pages, 0, false, false, false, true, PADDR_TO_KVADDR(coremap_paddr));
 
-	cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr + ((uint32_t)num_kern_pages) * 8);
+	cm_addr = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr + ((uint32_t)num_kern_pages) * sizeof(uint64_t));
 	cm_addr[0] = first_entry;
 	coremap_used_pages++;
 
@@ -127,7 +127,7 @@ ram_bootstrap(void)
 	firstpaddr = firstfree - MIPS_KSEG0;
 	coremap_paddr = firstpaddr;
 	coremap_size = ramsize / PAGE_SIZE;
-	firstpaddr = firstpaddr + ((ramsize / PAGE_SIZE)*8);
+	firstpaddr = firstpaddr + ((ramsize / PAGE_SIZE) * sizeof(uint64_t));
 	setup_coremap();
 
 	kprintf("%uk physical memory available\n",

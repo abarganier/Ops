@@ -41,9 +41,7 @@
 
 vaddr_t
 get_vpn(vaddr_t vaddr) {
-	vaddr_t vpn = vaddr >> 12;
-	vpn = vpn << 12;
-	return vpn;
+	return vaddr & PAGE_FRAME;
 }
 
 struct pagetable *
@@ -129,6 +127,8 @@ pte_set_ppn(struct pt_entry *pte, struct addrspace *as)
 	if(ppn <= 0) {
 		return ENOMEM;
 	}
+
+	KASSERT(ppn % PAGE_SIZE == 0);
 
 	bzero((void *)PADDR_TO_KVADDR(ppn), PAGE_SIZE);
 

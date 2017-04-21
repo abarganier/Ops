@@ -71,14 +71,14 @@ static
 void
 tlb_set_dirty(unsigned int *entry)
 {
-	*entry |= 1 << 10;
+	*entry |= TLBLO_DIRTY;
 }
 
 static
 void
 tlb_set_valid(unsigned int *entry)
 {
-	*entry |= 1 << 9;
+	*entry |= TLBLO_VALID;
 }
 
 static
@@ -240,6 +240,7 @@ static
 vaddr_t
 alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn, vaddr_t vpn, pid_t own_pid)
 {
+	KASSERT(coremap_paddr % PAGE_SIZE == 0);
 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	uint32_t first_index = 0;
 	bool found_pages = false;
@@ -266,15 +267,12 @@ alloc_pages(unsigned npages, bool is_fixed, paddr_t *ppn, vaddr_t vpn, pid_t own
 		virtual_address = PADDR_TO_KVADDR(*ppn);
 	}
 
-	// Set first coremap entry. Set owner to 0 for now (revisit this later)
-	pid_t owner_id = own_pid;
-
-	uint64_t first_entry = build_page_entry(npages, owner_id, false, false, true, is_fixed, virtual_address);
+	uint64_t first_entry = build_page_entry(npages, own_pid, false, false, true, is_fixed, virtual_address);
 	coremap[first_index] = first_entry;
 	coremap_used_pages++;
 
 	// Set additional coremap entries (if more than one)
-	uint64_t mid_entry = build_page_entry(npages, owner_id, false, false, false, is_fixed, virtual_address);
+	uint64_t mid_entry = build_page_entry(npages, own_pid, false, false, false, is_fixed, virtual_address);
 	for(uint64_t entry = 1; entry < npages; entry++) {
 		coremap[first_index + entry] = mid_entry;
 		coremap_used_pages++;
@@ -302,7 +300,7 @@ paddr_t
 alloc_upages(unsigned npages, vaddr_t vpn, pid_t own_pid)
 {
 	paddr_t ppn = 0;
-	vaddr_t ret = alloc_pages(npages, true, &ppn, vpn, own_pid);
+	vaddr_t ret = alloc_pages(npages, false, &ppn, vpn, own_pid);
 	(void)ret;
 	return ppn;
 }
@@ -311,6 +309,7 @@ static
 void
 free_pages(vaddr_t addr, pid_t owner)
 {
+	KASSERT(coremap_paddr % PAGE_SIZE == 0);
 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 	bool not_found = false;
 
@@ -356,6 +355,7 @@ free_pages(vaddr_t addr, pid_t owner)
 void
 free_page_at_index(size_t index, pid_t owner, vaddr_t vpn)
 {
+	KASSERT(coremap_paddr % PAGE_SIZE == 0);
 	uint64_t *coremap = (uint64_t *) PADDR_TO_KVADDR(coremap_paddr);
 
 	spinlock_acquire(&coremap_lock);
@@ -368,12 +368,12 @@ free_page_at_index(size_t index, pid_t owner, vaddr_t vpn)
 
 	KASSERT((vaddr_t)get_vaddr(entry) == vpn);
 	KASSERT((pid_t)get_owner(entry) == owner);
+	KASSERT((pid_t)get_owner(entry) != 0);
 
 	coremap[index] = 0;
 	coremap_used_pages--;
 
 	spinlock_release(&coremap_lock);
-
 }
 
 

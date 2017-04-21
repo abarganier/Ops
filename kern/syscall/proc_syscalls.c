@@ -120,7 +120,7 @@ sys_fork(struct trapframe *parent_tf, int32_t *retval)
 
 	lock_release(p_table->pt_lock);
 
-	err = as_copy(curproc->p_addrspace, &newproc->p_addrspace, newproc->pid);
+	err = as_copy(proc_getas(), &newproc->p_addrspace, newproc->pid);
 	if(err){
 		lock_acquire(p_table->pt_lock);
 		KASSERT(p_table->table[newproc->pid] == newproc);

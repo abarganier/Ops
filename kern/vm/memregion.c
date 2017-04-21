@@ -122,8 +122,8 @@ add_region(struct region_list *list, vaddr_t vaddr, size_t size, int readable, i
 	}
 
 	new_region->next = NULL;
-	new_region->start_addr = vaddr;
-	new_region->size = size;
+	new_region->start_addr = vaddr & PAGE_FRAME;
+	new_region->size = (size + PAGE_SIZE - 1) & PAGE_FRAME;
 
 	// new_region->readable = readable > 0 ? true : false;
 	// new_region->writeable = writeable > 0 ? true : false;
